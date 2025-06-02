@@ -293,7 +293,7 @@ function createMusicItemElement(id, music) {
                     </div>
                 </div>`;
             } else {
-                const linkIdentifierWithColonHtml = `<div class="flex items-center space-x-1">${chainIconSvg}<span class="text-sm font-medium text-gray-700">#${linkNumber}:</span></div>`;
+                const linkIdentifierWithColonHtml = `<div class="flex items-center space-x-1">${chainIconSvg}<span class="text-sm font-medium text-gray-700">#${linkNumber}</span></div>`;
                 html = `
                 <div class="mt-3">
                     <div class="mb-2">${linkIdentifierWithColonHtml}</div>
