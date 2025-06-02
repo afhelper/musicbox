@@ -75,41 +75,65 @@ let currentEditingDocId = null;
 
 
 function updateUI(user) {
-    if (user) {
+    if (user) { // 사용자가 로그인했을 때
         loginFormContainer.classList.add('hidden');
         fabContainer.classList.remove('hidden');
         dataSectionDiv.classList.remove('hidden');
         loadAndDisplayMusicData();
 
-        passwordInput.value = ""; // 로그인 성공 시 비밀번호 입력 필드 비우기
-        targetLoginEmail = REGULAR_ADMIN_EMAIL; // <<-- 추가: 로그인 성공 시 타겟 이메일 초기화
+        passwordInput.value = ""; // 로그인 성공했으니 비밀번호 입력 필드 비우기
+        passwordInput.type = "text"; // <<-- 추가: 로그인 성공 후에도 기본 text 타입으로 (다음에 로그인 폼 보일 때 대비)
+        targetLoginEmail = REGULAR_ADMIN_EMAIL; // 로그인 모드 일반 관리자로 초기화
         console.log("로그인 성공. 로그인 모드 일반 관리자로 초기화.");
-        if (messageDiv && messageDiv.textContent.includes("로그인 모드")) { // 모드 안내 메시지 있었다면 지우기
+
+        // Cmd+K로 설정했던 "로그인 모드" 안내 메시지가 있었다면 지우기
+        if (messageDiv && messageDiv.textContent.includes("로그인 모드")) {
             messageDiv.textContent = "";
         }
 
-    } else {
-        loginFormContainer.classList.remove('hidden');
-        fabContainer.classList.add('hidden');
-        dataSectionDiv.classList.add('hidden');
-        musicListContainer.innerHTML = '';
-        // messageDiv.textContent = ''; // 로그인 실패 메시지 등이 있을 수 있으므로 여기서 무조건 지우진 않음
+    } else { // 사용자가 로그아웃했거나, 아직 로그인하지 않았을 때
+        loginFormContainer.classList.remove('hidden'); // 로그인 폼 보이기
+        passwordInput.value = ""; // <<-- 추가된 부분: 로그아웃 시 비밀번호 입력 필드 비우기!
+        passwordInput.type = "text"; // <<-- 추가: 로그아웃 시 항상 type="text" (비밀번호 표시)로!
         if (typeof grecaptcha !== 'undefined') {
-            grecaptcha.reset();
+            grecaptcha.reset(); // 리캡차 초기화
         }
-        isAdminModeActive = false;
-        closeAnyOpenDropdown();
-        if (fabOpen) {
-            // ... (기존 FAB 닫는 로직) ...
+        fabContainer.classList.add('hidden'); // 플로팅 버튼 숨기기
+        dataSectionDiv.classList.add('hidden'); // 데이터 섹션 숨기기
+        if (musicListContainer) { // musicListContainer가 실제로 존재하는지 확인 후 초기화
+            musicListContainer.innerHTML = ''; // 음악 목록 비우기
         }
-        targetLoginEmail = REGULAR_ADMIN_EMAIL; // <<-- 추가: 로그아웃 시 타겟 이메일 초기화
-        console.log("로그아웃. 로그인 모드 일반 관리자로 초기화.");
-        // 로그아웃 시에는 로그인 모드 안내 메시지를 명시적으로 다시 설정하거나 지울 수 있음
+
+        targetLoginEmail = REGULAR_ADMIN_EMAIL; // 로그인 모드 일반 관리자로 초기화
+
         if (messageDiv) {
-            messageDiv.textContent = ""; // 깔끔하게 비워주기
+            messageDiv.textContent = ""; // <<-- 중요: 모든 메시지 영역 확실히 비우기
         }
+
+        // isAdminModeActive = false; // <<-- 삭제된 부분: 이 변수는 더 이상 사용하지 않음
+
+        if (typeof closeAnyOpenDropdown === 'function') { // 해당 함수가 정의되어 있다면 호출
+            closeAnyOpenDropdown(); // 열려있는 드롭다운 메뉴가 있다면 닫기
+        }
+
+        // 플로팅 액션 버튼(FAB)이 열려있었다면 닫기
+        if (typeof fabOpen !== 'undefined' && fabOpen) { // fabOpen 변수가 존재하고 true일 때
+            if (fabActions && fabIconPlus && fabIconClose) { // 관련 DOM 요소들이 모두 존재하는지 확인
+                fabActions.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+                fabActions.classList.remove('opacity-100', 'pointer-events-auto', 'translate-y-0');
+                fabIconPlus.classList.remove('hidden');
+                fabIconClose.classList.add('hidden');
+            }
+            fabOpen = false; // fabOpen 상태 초기화
+        }
+
+        console.log("로그아웃 또는 초기 상태. 로그인 폼 및 관련 상태 초기화 완료.");
     }
 }
+
+
+
+
 
 
 
@@ -722,6 +746,7 @@ document.addEventListener('keydown', function (event) {
 
         if (targetLoginEmail === REGULAR_ADMIN_EMAIL) {
             targetLoginEmail = SUPER_ADMIN_EMAIL;
+            passwordInput.type = "password"; // <<-- 슈퍼 관리자 모드: type="password"
             console.log("로그인 대상: 슈퍼 관리자");
             // 사용자에게 현재 모드를 알려주는 피드백 (선택 사항)
             if (messageDiv) { // messageDiv가 정의되어 있는지 확인
@@ -730,6 +755,7 @@ document.addEventListener('keydown', function (event) {
             }
         } else {
             targetLoginEmail = REGULAR_ADMIN_EMAIL;
+            passwordInput.type = "text"; // <<-- 일반 관리자 모드: type="text"
             console.log("로그인 대상: 일반 관리자");
             if (messageDiv) {
                 messageDiv.textContent = "일반 관리자 로그인 모드입니다.";
