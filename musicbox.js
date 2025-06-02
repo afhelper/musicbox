@@ -5,6 +5,15 @@ import { getFirestore, collection, addDoc, query, orderBy, getDocs, serverTimest
 
 console.log("Firebase 모듈 임포트 완료");
 
+
+const REGULAR_ADMIN_EMAIL = "admin@admin.com";
+const SUPER_ADMIN_EMAIL = "super_admin@admin.com";
+let targetLoginEmail = REGULAR_ADMIN_EMAIL;
+
+const YOUR_SUPER_ADMIN_UID = "8ix4GhF65ENqR6nVB6VrH3n4qJy2";
+
+
+
 const firebaseConfig = {
     apiKey: "AIzaSyBeIPr1H_de7eIZUagNAUvPbw-rYRteP9U", // 너의 Firebase API 키
     authDomain: "submit-33eb1.firebaseapp.com", // 너의 Firebase Auth 도메인
@@ -59,37 +68,51 @@ const openAddMusicFab = document.getElementById('openAddMusicFab');
 const logoutFab = document.getElementById('logoutFab');
 
 let fabOpen = false;
-let isAdminModeActive = false;
+// let isAdminModeActive = false;
 let currentOpenDropdown = null;
 let currentEditingDocId = null;
 
-// --- Auth & UI Logic ---
+
+
 function updateUI(user) {
     if (user) {
         loginFormContainer.classList.add('hidden');
         fabContainer.classList.remove('hidden');
         dataSectionDiv.classList.remove('hidden');
         loadAndDisplayMusicData();
+
+        passwordInput.value = ""; // 로그인 성공 시 비밀번호 입력 필드 비우기
+        targetLoginEmail = REGULAR_ADMIN_EMAIL; // <<-- 추가: 로그인 성공 시 타겟 이메일 초기화
+        console.log("로그인 성공. 로그인 모드 일반 관리자로 초기화.");
+        if (messageDiv && messageDiv.textContent.includes("로그인 모드")) { // 모드 안내 메시지 있었다면 지우기
+            messageDiv.textContent = "";
+        }
+
     } else {
         loginFormContainer.classList.remove('hidden');
         fabContainer.classList.add('hidden');
         dataSectionDiv.classList.add('hidden');
         musicListContainer.innerHTML = '';
-        messageDiv.textContent = '';
+        // messageDiv.textContent = ''; // 로그인 실패 메시지 등이 있을 수 있으므로 여기서 무조건 지우진 않음
         if (typeof grecaptcha !== 'undefined') {
             grecaptcha.reset();
         }
         isAdminModeActive = false;
         closeAnyOpenDropdown();
         if (fabOpen) {
-            fabActions.classList.remove('opacity-100', 'pointer-events-auto', 'translate-y-0');
-            fabActions.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
-            fabIconPlus.classList.remove('hidden');
-            fabIconClose.classList.add('hidden');
-            fabOpen = false;
+            // ... (기존 FAB 닫는 로직) ...
+        }
+        targetLoginEmail = REGULAR_ADMIN_EMAIL; // <<-- 추가: 로그아웃 시 타겟 이메일 초기화
+        console.log("로그아웃. 로그인 모드 일반 관리자로 초기화.");
+        // 로그아웃 시에는 로그인 모드 안내 메시지를 명시적으로 다시 설정하거나 지울 수 있음
+        if (messageDiv) {
+            messageDiv.textContent = ""; // 깔끔하게 비워주기
         }
     }
 }
+
+
+
 
 onAuthStateChanged(auth, (user) => {
     updateUI(user);
@@ -327,16 +350,19 @@ function createMusicItemElement(id, music) {
         <p class="text-xs text-gray-400 mt-4 text-right">게시일: ${music.createdAt ? new Date(music.createdAt.seconds * 1000).toLocaleString() : '날짜 정보 없음'}</p>
     `;
 
-    if (isAdminModeActive) {
+    if (auth.currentUser && auth.currentUser.uid === YOUR_SUPER_ADMIN_UID) {
         addAdminControls(div, id, music);
     }
     return div;
 }
 
 
+
+
 async function handleLogin() {
     const passwordVal = passwordInput.value;
     const recaptchaResponse = (typeof grecaptcha !== 'undefined') ? grecaptcha.getResponse() : 'test_mode';
+
     if (!passwordVal) {
         messageDiv.textContent = "비밀번호를 입력해주세요.";
         messageDiv.className = "mt-4 text-sm text-center text-red-500";
@@ -347,25 +373,36 @@ async function handleLogin() {
         messageDiv.className = "mt-4 text-sm text-center text-red-500";
         return;
     }
+
     loginButton.disabled = true;
     loginButton.textContent = "로그인 중...";
-    loginButton.classList.add("opacity-50", "cursor-not-allowed");
-    messageDiv.textContent = "로그인 시도 중...";
+    // 어떤 모드로 로그인 시도하는지 명확히 표시 (개발/디버깅용으로도 좋음)
+    const currentLoginMode = targetLoginEmail === SUPER_ADMIN_EMAIL ? '슈퍼 관리자' : '일반 관리자';
+    messageDiv.textContent = `${currentLoginMode} 계정으로 로그인 시도 중...`;
     messageDiv.className = "mt-4 text-sm text-center text-gray-500";
+
     try {
-        await signInWithEmailAndPassword(auth, FIXED_EMAIL, passwordVal);
-        passwordInput.value = "";
+        // targetLoginEmail 변수를 사용해서 해당 이메일로 로그인 시도
+        await signInWithEmailAndPassword(auth, targetLoginEmail, passwordVal);
+        console.log(`${currentLoginMode} 로그인 성공!`);
+        // 성공 시 비밀번호 필드는 updateUI 함수에서 비워줄 수 있음 (로그인 폼이 숨겨지므로)
+        // 로그인 성공 후 targetLoginEmail은 updateUI 또는 로그아웃 시 초기화
     } catch (error) {
-        console.error("로그인 실패:", error.code, error.message);
-        messageDiv.textContent = "로그인 실패: " + mapAuthError(error.code);
+        console.error(`${currentLoginMode} 로그인 실패:`, error.code, error.message);
+        messageDiv.textContent = `로그인 실패 (${currentLoginMode}): ${mapAuthError(error.code)}`;
         messageDiv.className = "mt-4 text-sm text-center text-red-600";
         if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
     } finally {
         loginButton.disabled = false;
         loginButton.textContent = "로그인";
-        loginButton.classList.remove("opacity-50", "cursor-not-allowed");
     }
 }
+
+
+
+
+
+
 
 loginButton.addEventListener('click', handleLogin);
 passwordInput.addEventListener('keydown', (event) => {
@@ -444,11 +481,7 @@ addMusicForm.addEventListener('submit', async (event) => {
     }
 });
 
-function toggleAdminMode() {
-    isAdminModeActive = !isAdminModeActive;
-    console.log("관리자 모드:", isAdminModeActive ? "활성화" : "비활성화");
-    loadAndDisplayMusicData(); // 관리자 모드 변경 시 목록 새로고침 (수정/삭제 버튼 표시 여부 업데이트)
-}
+
 
 function addAdminControls(itemElement, musicId, musicData) {
     if (itemElement.querySelector('.admin-controls-container')) {
@@ -663,17 +696,7 @@ async function handleDeleteMusic(docId, musicTitle = "해당 곡") {
     }
 }
 
-document.addEventListener('keydown', function (event) {
-    const activeElement = document.activeElement;
-    const isInputFocused = activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable;
 
-    if (auth.currentUser && !isInputFocused) {
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-            event.preventDefault();
-            toggleAdminMode();
-        }
-    }
-});
 
 document.addEventListener('click', (event) => {
     if (currentOpenDropdown &&
@@ -682,6 +705,54 @@ document.addEventListener('click', (event) => {
         closeAnyOpenDropdown();
     }
 });
+
+
+
+
+// --- Cmd+K (Ctrl+K) 로그인 모드 전환 이벤트 리스너 추가 ---
+document.addEventListener('keydown', function (event) {
+    // loginFormContainer 변수가 이 스코프에서 접근 가능한지 확인 필요
+    // 보통 파일 상단에 DOM 요소들을 정의하므로 접근 가능할 것임
+    const loginFormVisible = loginFormContainer && !loginFormContainer.classList.contains('hidden');
+    const currentUser = auth.currentUser; // 현재 로그인된 사용자 정보 가져오기
+
+    // 로그인 폼이 보이고, 아직 로그인하지 않은 상태에서만 단축키 작동
+    if (loginFormVisible && !currentUser && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault(); // 브라우저 기본 동작(검색창 등) 방지
+
+        if (targetLoginEmail === REGULAR_ADMIN_EMAIL) {
+            targetLoginEmail = SUPER_ADMIN_EMAIL;
+            console.log("로그인 대상: 슈퍼 관리자");
+            // 사용자에게 현재 모드를 알려주는 피드백 (선택 사항)
+            if (messageDiv) { // messageDiv가 정의되어 있는지 확인
+                messageDiv.textContent = "🔒 슈퍼 관리자 로그인 모드로 전환되었습니다.";
+                messageDiv.className = "mt-4 text-sm text-center text-amber-600 font-semibold";
+            }
+        } else {
+            targetLoginEmail = REGULAR_ADMIN_EMAIL;
+            console.log("로그인 대상: 일반 관리자");
+            if (messageDiv) {
+                messageDiv.textContent = "일반 관리자 로그인 모드입니다.";
+                messageDiv.className = "mt-4 text-sm text-center text-gray-500";
+            }
+        }
+
+        // 몇 초 뒤에 모드 안내 메시지 자동으로 지우기 (선택 사항)
+        setTimeout(() => {
+            if (messageDiv && messageDiv.textContent.includes("로그인 모드")) {
+                messageDiv.textContent = ""; // 로그인 시도 시 나오는 메시지로 덮어쓰이거나 지워짐
+            }
+        }, 4000);
+    }
+});
+// --- 여기까지 추가 ---
+
+
+
+
+
+
+
 
 function mapAuthError(errorCode) {
     switch (errorCode) {
