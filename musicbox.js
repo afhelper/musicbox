@@ -5,14 +5,11 @@ import { getFirestore, collection, addDoc, query, orderBy, getDocs, serverTimest
 
 console.log("Firebase 모듈 임포트 완료");
 
-
 const REGULAR_ADMIN_EMAIL = "admin@admin.com";
 const SUPER_ADMIN_EMAIL = "super_admin@admin.com";
 let targetLoginEmail = REGULAR_ADMIN_EMAIL;
 
 const YOUR_SUPER_ADMIN_UID = "8ix4GhF65ENqR6nVB6VrH3n4qJy2";
-
-
 
 const firebaseConfig = {
     apiKey: "AIzaSyBeIPr1H_de7eIZUagNAUvPbw-rYRteP9U", // 너의 Firebase API 키
@@ -68,11 +65,18 @@ const openAddMusicFab = document.getElementById('openAddMusicFab');
 const logoutFab = document.getElementById('logoutFab');
 
 let fabOpen = false;
-// let isAdminModeActive = false;
 let currentOpenDropdown = null;
 let currentEditingDocId = null;
 
-
+// HTML 이스케이프 함수
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
 function updateUI(user) {
     if (user) { // 사용자가 로그인했을 때
@@ -110,8 +114,6 @@ function updateUI(user) {
             messageDiv.textContent = ""; // <<-- 중요: 모든 메시지 영역 확실히 비우기
         }
 
-        // isAdminModeActive = false; // <<-- 삭제된 부분: 이 변수는 더 이상 사용하지 않음
-
         if (typeof closeAnyOpenDropdown === 'function') { // 해당 함수가 정의되어 있다면 호출
             closeAnyOpenDropdown(); // 열려있는 드롭다운 메뉴가 있다면 닫기
         }
@@ -130,13 +132,6 @@ function updateUI(user) {
         console.log("로그아웃 또는 초기 상태. 로그인 폼 및 관련 상태 초기화 완료.");
     }
 }
-
-
-
-
-
-
-
 
 onAuthStateChanged(auth, (user) => {
     updateUI(user);
@@ -264,7 +259,6 @@ function getYouTubeVideoInfo(url) {
     return null;
 }
 
-
 function createMusicItemElement(id, music) {
     const div = document.createElement('div');
     div.className = "music-item bg-gray-50 p-4 rounded-lg shadow hover:shadow-md transition-shadow duration-200";
@@ -297,7 +291,7 @@ function createMusicItemElement(id, music) {
                     <iframe src="${mainVideoInfo.embedUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
                 </div>`;
         } else {
-            playerHtml = `<div class="my-3"><a href="${musicUrl}" target="_blank" class="text-indigo-600 hover:text-indigo-800 hover:underline break-all">콘텐츠 보기/듣기: ${musicUrl}</a></div>`;
+            playerHtml = `<div class="my-3"><a href="${musicUrl}" target="_blank" class="text-indigo-600 hover:text-indigo-800 hover:underline break-all">콘텐츠 보기/듣기: ${escapeHtml(musicUrl)}</a></div>`;
         }
     } else {
         playerHtml = `<div class="my-3"><p class="text-sm text-gray-500">제공된 음악 URL이 없습니다.</p></div>`;
@@ -309,9 +303,9 @@ function createMusicItemElement(id, music) {
             const videoInfo = getYouTubeVideoInfo(linkUrl);
 
             const chainIconSvg = `
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-gray-500">
-      <path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
-    </svg>`;
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-gray-500">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
+            </svg>`;
 
             const firstLineHtml = `
             <div class="flex items-center space-x-1">
@@ -344,15 +338,19 @@ function createMusicItemElement(id, music) {
                 html = `
                 <div class="mt-3">
                     <div class="mb-2">${linkIdentifierWithColonHtml}</div>
-                    <a href="${linkUrl}" target="_blank" class="text-sm text-blue-500 hover:underline break-all block pl-5">${linkUrl}</a>
+                    <a href="${linkUrl}" target="_blank" class="text-sm text-blue-500 hover:underline break-all block pl-5">${escapeHtml(linkUrl)}</a>
                 </div>`;
             }
         }
         return html;
     }
 
-    const link1Html = createLinkHtml(music.link1, 1);
-    const link2Html = createLinkHtml(music.link2, 2);
+    const safeTitle = escapeHtml(music.title || '제목 없음');
+    const safeDescription = music.description ? `<p class="text-sm text-gray-600 my-3 whitespace-pre-wrap">${escapeHtml(music.description)}</p>` : '';
+    const safeLink1 = music.link1 || '';
+    const safeLink2 = music.link2 || '';
+    const link1Html = createLinkHtml(safeLink1, 1);
+    const link2Html = createLinkHtml(safeLink2, 2);
 
     let pinnedIndicatorHtml = '';
     if (music.isPinned === true) {
@@ -366,9 +364,9 @@ function createMusicItemElement(id, music) {
 
     div.innerHTML = `
         ${pinnedIndicatorHtml}
-        <h4 class="text-xl font-semibold text-blue-700 mb-1 pt-1">${music.title || '제목 없음'}</h4>
+        <h4 class="text-xl font-semibold text-blue-700 mb-1 pt-1">${safeTitle}</h4>
         ${playerHtml}
-        ${music.description ? `<p class="text-sm text-gray-600 my-3 whitespace-pre-wrap">${music.description}</p>` : ''}
+        ${safeDescription}
         ${link1Html}
         ${link2Html}
         <p class="text-xs text-gray-400 mt-4 text-right">게시일: ${music.createdAt ? new Date(music.createdAt.seconds * 1000).toLocaleString() : '날짜 정보 없음'}</p>
@@ -379,9 +377,6 @@ function createMusicItemElement(id, music) {
     }
     return div;
 }
-
-
-
 
 async function handleLogin() {
     const passwordVal = passwordInput.value;
@@ -421,12 +416,6 @@ async function handleLogin() {
         loginButton.textContent = "로그인";
     }
 }
-
-
-
-
-
-
 
 loginButton.addEventListener('click', handleLogin);
 passwordInput.addEventListener('keydown', (event) => {
@@ -505,8 +494,6 @@ addMusicForm.addEventListener('submit', async (event) => {
     }
 });
 
-
-
 function addAdminControls(itemElement, musicId, musicData) {
     if (itemElement.querySelector('.admin-controls-container')) {
         // 이미 컨트롤이 있다면 musicData를 최신으로 업데이트하여 드롭다운 메뉴에 반영
@@ -543,7 +530,6 @@ function addAdminControls(itemElement, musicId, musicData) {
     controlsContainer.appendChild(moreButton);
     itemElement.appendChild(controlsContainer);
 }
-
 
 function createDropdownMenu(musicId, musicData) {
     const menu = document.createElement('div');
@@ -615,7 +601,6 @@ function toggleDropdownMenu(buttonElement, musicId, musicData) {
         currentOpenDropdown = dropdown;
     }
 }
-
 
 function closeAnyOpenDropdown(excludeMenu = null) {
     if (currentOpenDropdown && currentOpenDropdown !== excludeMenu) {
@@ -720,8 +705,6 @@ async function handleDeleteMusic(docId, musicTitle = "해당 곡") {
     }
 }
 
-
-
 document.addEventListener('click', (event) => {
     if (currentOpenDropdown &&
         !currentOpenDropdown.contains(event.target) &&
@@ -729,9 +712,6 @@ document.addEventListener('click', (event) => {
         closeAnyOpenDropdown();
     }
 });
-
-
-
 
 // --- Cmd+K (Ctrl+K) 로그인 모드 전환 이벤트 리스너 추가 ---
 document.addEventListener('keydown', function (event) {
@@ -773,13 +753,6 @@ document.addEventListener('keydown', function (event) {
 });
 // --- 여기까지 추가 ---
 
-
-
-
-
-
-
-
 function mapAuthError(errorCode) {
     switch (errorCode) {
         case "auth/invalid-email": return "잘못된 이메일 형식입니다.";
@@ -792,4 +765,3 @@ function mapAuthError(errorCode) {
         default: return "알 수 없는 오류가 발생했습니다. (" + errorCode + ")";
     }
 }
-
