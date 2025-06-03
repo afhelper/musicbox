@@ -232,27 +232,6 @@ async function loadAndDisplayMusicData() {
     }
 }
 
-// URL 유효성 검사 및 XSS 방지를 위한 헬퍼 함수
-function sanitizeUrl(url) {
-    if (!url) return '';
-    try {
-        const parsedUrl = new URL(url);
-        // http 또는 https 스킴만 허용
-        if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
-            return url;
-        }
-    } catch (e) {
-        // URL 파싱 실패 시 경고
-        console.warn("Invalid URL for sanitization:", url, e);
-    }
-    return ''; // 안전하지 않은 URL이거나 유효하지 않은 경우 빈 문자열 반환
-}
-
-
-
-
-
-
 function getYouTubeVideoInfo(url) {
     if (!url) return null;
     try {
@@ -286,29 +265,14 @@ function getYouTubeVideoInfo(url) {
 }
 
 
-
-
-
-
-
-
-
 function createMusicItemElement(id, music) {
     const div = document.createElement('div');
     div.className = "music-item bg-gray-50 p-4 rounded-lg shadow hover:shadow-md transition-shadow duration-200";
     div.dataset.id = id;
 
-    // 제목 요소 생성 및 textContent 사용
-    const titleElement = document.createElement('h4');
-    titleElement.className = "text-xl font-semibold text-blue-700 mb-1 pt-1";
-    titleElement.textContent = music.title || '제목 없음';
-    div.appendChild(titleElement);
+    let playerHtml = '';
+    const musicUrl = music.url;
 
-    let playerDiv = document.createElement('div');
-    playerDiv.className = "my-3";
-    div.appendChild(playerDiv);
-
-    const musicUrl = sanitizeUrl(music.url); // URL 정제
     if (musicUrl) {
         const isAudioFile = /\.(mp3|m4a|ogg|wav|aac)$/i.test(musicUrl);
         const mainVideoInfo = getYouTubeVideoInfo(musicUrl);
@@ -319,116 +283,96 @@ function createMusicItemElement(id, music) {
             else if (/\.(m4a|aac)$/i.test(musicUrl)) audioType = 'audio/mp4';
             else if (/\.ogg$/i.test(musicUrl)) audioType = 'audio/ogg';
             else if (/\.wav$/i.test(musicUrl)) audioType = 'audio/wav';
-            playerDiv.innerHTML = `
-                <audio controls preload="none" class="w-full rounded">
-                    <source src="${musicUrl}" ${audioType ? `type="${audioType}"` : ''}>
-                    브라우저가 오디오 재생을 지원하지 않습니다. <a href="${musicUrl}" target="_blank" class="text-indigo-500 hover:underline">직접 듣기</a>
-                </audio>`;
+            playerHtml = `
+                <div class="my-3">
+                    <audio controls preload="none" class="w-full rounded">
+                        <source src="${musicUrl}" ${audioType ? `type="${audioType}"` : ''}>
+                        브라우저가 오디오 재생을 지원하지 않습니다. <a href="${musicUrl}" target="_blank" class="text-indigo-500 hover:underline">직접 듣기</a>
+                    </audio>
+                </div>`;
         } else if (mainVideoInfo) {
             const embedContainerClass = mainVideoInfo.isShorts ? 'youtube-shorts-container' : 'aspect-w-16 aspect-h-9';
-            playerDiv.innerHTML = `
-                <div class="${embedContainerClass} rounded overflow-hidden">
+            playerHtml = `
+                <div class="${embedContainerClass} my-3 rounded overflow-hidden">
                     <iframe src="${mainVideoInfo.embedUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
                 </div>`;
         } else {
-            const linkElement = document.createElement('a');
-            linkElement.href = musicUrl; // sanitizeUrl로 인해 안전한 URL만 들어옴
-            linkElement.target = "_blank";
-            linkElement.className = "text-indigo-600 hover:text-indigo-800 hover:underline break-all";
-            linkElement.textContent = `콘텐츠 보기/듣기: ${musicUrl}`;
-            playerDiv.appendChild(linkElement);
+            playerHtml = `<div class="my-3"><a href="${musicUrl}" target="_blank" class="text-indigo-600 hover:text-indigo-800 hover:underline break-all">콘텐츠 보기/듣기: ${musicUrl}</a></div>`;
         }
     } else {
-        const noUrlParagraph = document.createElement('p');
-        noUrlParagraph.className = "text-sm text-gray-500";
-        noUrlParagraph.textContent = "제공된 음악 URL이 없습니다.";
-        playerDiv.appendChild(noUrlParagraph);
+        playerHtml = `<div class="my-3"><p class="text-sm text-gray-500">제공된 음악 URL이 없습니다.</p></div>`;
     }
 
-    // 설명 요소 생성 및 textContent 사용
-    if (music.description) {
-        const descriptionElement = document.createElement('p');
-        descriptionElement.className = "text-sm text-gray-600 my-3 whitespace-pre-wrap";
-        descriptionElement.textContent = music.description; // XSS 방지를 위해 textContent 사용
-        div.appendChild(descriptionElement);
-    }
+    function createLinkHtml(linkUrl, linkNumber) {
+        let html = '';
+        if (linkUrl) {
+            const videoInfo = getYouTubeVideoInfo(linkUrl);
 
-    function createLinkElement(linkUrl, linkNumber) {
-        const sanitizedLinkUrl = sanitizeUrl(linkUrl); // URL 정제
-        if (!sanitizedLinkUrl) return null; // 정제된 URL이 없으면 생성하지 않음
+            const chainIconSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-gray-500">
+      <path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
+    </svg>`;
 
-        const linkContainer = document.createElement('div');
-        linkContainer.className = "mt-3";
+            const firstLineHtml = `
+            <div class="flex items-center space-x-1">
+                ${chainIconSvg}
+                <span class="text-sm font-medium text-gray-700">#${linkNumber}</span>
+            </div>`;
 
-        const chainIconSvg = `
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-gray-500">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
-            </svg>`;
-
-        const firstLineDiv = document.createElement('div');
-        firstLineDiv.className = "flex items-center space-x-1";
-        firstLineDiv.innerHTML = `${chainIconSvg}<span class="text-sm font-medium text-gray-700">#${linkNumber}</span>`;
-        linkContainer.appendChild(firstLineDiv);
-
-        const videoInfo = getYouTubeVideoInfo(sanitizedLinkUrl);
-
-        if (videoInfo) {
-            const youtubeIconSvg = `
+            if (videoInfo) {
+                const embedContainerClass = videoInfo.isShorts ? 'youtube-shorts-container' : 'aspect-w-16 aspect-h-9';
+                const youtubeIconSvg = `
                 <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-current text-red-600 transition-colors">
                     <title>YouTube</title>
                     <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                 </svg>`;
-            const shortsBadge = videoInfo.isShorts ? '<span class="text-xs bg-gray-200 text-black-700 px-1.5 py-0.5 rounded-full font-semibold">Shorts</span>' : '';
+                const shortsBadge = videoInfo.isShorts ? '<span class="text-xs bg-gray-200 text-black-700 px-1.5 py-0.5 rounded-full font-semibold">Shorts</span>' : '';
+                let secondLineIconsHtml = shortsBadge ? `<div class="flex items-center space-x-1.5 mt-1">${youtubeIconSvg}${shortsBadge}</div>` : `<div class="flex items-center mt-1">${youtubeIconSvg}</div>`;
 
-            const secondLineDiv = document.createElement('div');
-            secondLineDiv.className = "flex items-center space-x-1.5 mt-1";
-            secondLineDiv.innerHTML = `${youtubeIconSvg}${shortsBadge}`;
-            linkContainer.appendChild(secondLineDiv);
-
-            const embedContainerClass = videoInfo.isShorts ? 'youtube-shorts-container' : 'aspect-w-16 aspect-h-9';
-            const iframeContainer = document.createElement('div');
-            iframeContainer.className = `${embedContainerClass} rounded overflow-hidden shadow-sm`;
-            iframeContainer.innerHTML = `<iframe src="${videoInfo.embedUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
-            linkContainer.appendChild(iframeContainer);
-        } else {
-            const linkTag = document.createElement('a');
-            linkTag.href = sanitizedLinkUrl;
-            linkTag.target = "_blank";
-            linkTag.className = "text-sm text-blue-500 hover:underline break-all block pl-5";
-            linkTag.textContent = sanitizedLinkUrl; // XSS 방지를 위해 textContent 사용
-            linkContainer.appendChild(linkTag);
+                html = `
+                <div class="mt-3">
+                    <div class="mb-2"> 
+                        ${firstLineHtml}
+                        ${secondLineIconsHtml}
+                    </div>
+                    <div class="${embedContainerClass} rounded overflow-hidden shadow-sm">
+                        <iframe src="${videoInfo.embedUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                    </div>
+                </div>`;
+            } else {
+                const linkIdentifierWithColonHtml = `<div class="flex items-center space-x-1">${chainIconSvg}<span class="text-sm font-medium text-gray-700">#${linkNumber}</span></div>`;
+                html = `
+                <div class="mt-3">
+                    <div class="mb-2">${linkIdentifierWithColonHtml}</div>
+                    <a href="${linkUrl}" target="_blank" class="text-sm text-blue-500 hover:underline break-all block pl-5">${linkUrl}</a>
+                </div>`;
+            }
         }
-        return linkContainer;
+        return html;
     }
 
-    const link1Element = createLinkElement(music.link1, 1);
-    if (link1Element) div.appendChild(link1Element);
-
-    const link2Element = createLinkElement(music.link2, 2);
-    if (link2Element) div.appendChild(link2Element);
+    const link1Html = createLinkHtml(music.link1, 1);
+    const link2Html = createLinkHtml(music.link2, 2);
 
     let pinnedIndicatorHtml = '';
     if (music.isPinned === true) {
-        // textContent를 사용하거나 DOM API로 안전하게 생성
-        const pinnedAtText = music.pinnedAt ? new Date(music.pinnedAt.seconds * 1000).toLocaleString() : '시간 정보 없음';
         pinnedIndicatorHtml = `
-        <div class="absolute -top-1 -left-1 bg-blue-400 text-white w-5 h-5 rounded-full shadow flex items-center justify-center" title="고정됨 (최근 고정일: ${pinnedAtText})">
+        <div class="absolute -top-1 -left-1 bg-blue-400 text-white w-5 h-5 rounded-full shadow flex items-center justify-center" title="고정됨 (최근 고정일: ${music.pinnedAt ? new Date(music.pinnedAt.seconds * 1000).toLocaleString() : '시간 정보 없음'})">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
                 <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
             </svg>
         </div>`;
     }
-    // 기존 div.innerHTML 대신 요소별로 추가
-    if (pinnedIndicatorHtml) {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = pinnedIndicatorHtml;
-        div.prepend(tempDiv.firstChild); // 가장 위에 추가
-    }
 
-    const createdAtParagraph = document.createElement('p');
-    createdAtParagraph.className = "text-xs text-gray-400 mt-4 text-right";
-    createdAtParagraph.textContent = `게시일: ${music.createdAt ? new Date(music.createdAt.seconds * 1000).toLocaleString() : '날짜 정보 없음'}`;
-    div.appendChild(createdAtParagraph);
+    div.innerHTML = `
+        ${pinnedIndicatorHtml}
+        <h4 class="text-xl font-semibold text-blue-700 mb-1 pt-1">${music.title || '제목 없음'}</h4>
+        ${playerHtml}
+        ${music.description ? `<p class="text-sm text-gray-600 my-3 whitespace-pre-wrap">${music.description}</p>` : ''}
+        ${link1Html}
+        ${link2Html}
+        <p class="text-xs text-gray-400 mt-4 text-right">게시일: ${music.createdAt ? new Date(music.createdAt.seconds * 1000).toLocaleString() : '날짜 정보 없음'}</p>
+    `;
 
     if (auth.currentUser && auth.currentUser.uid === YOUR_SUPER_ADMIN_UID) {
         addAdminControls(div, id, music);
@@ -848,3 +792,4 @@ function mapAuthError(errorCode) {
         default: return "알 수 없는 오류가 발생했습니다. (" + errorCode + ")";
     }
 }
+
