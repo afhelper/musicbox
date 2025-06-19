@@ -6,7 +6,7 @@ import { auth } from './firebase.js';
 import * as config from './config.js';
 import * as dom from './dom.js';
 import { login, logout, onAuthChange, mapAuthError } from './auth.js';
-import * as ui from './ui.js';
+import { initializeUI, updateUI, renderMusicList, closeAddModal, showAddModalMessage } from './ui.js';
 import * as dataService from './firestore-service.js';
 
 
@@ -61,10 +61,15 @@ async function handleLogoutAttempt() {
     }
 }
 
+// musicbox.js
+
+// ... (다른 핸들러 함수는 그대로) ...
+
 async function handleSaveMusicAttempt() {
     const title = dom.addMusicForm.musicTitle.value.trim();
     if (!title) {
-        dom.addMusicMessage.textContent = "곡 제목은 필수입니다.";
+        // 새로 만든 메시지 함수 사용
+        ui.showAddModalMessage("곡 제목은 필수입니다.", false);
         return;
     }
     dom.saveMusicButton.disabled = true;
@@ -81,17 +86,27 @@ async function handleSaveMusicAttempt() {
 
     try {
         await dataService.addMusic(newMusic);
+        // 🔽 성공 메시지를 표시하는 로직 추가
+        ui.showAddModalMessage("음악이 성공적으로 추가되었습니다!");
+
+        // 🔽 1.5초 후에 모달을 '닫도록' 수정
         setTimeout(() => {
-            ui.openAddModal(); // 모달을 닫는 것도 UI의 역할
+            ui.closeAddModal();
             loadAndDisplayMusicData();
-        }, 1000);
+        }, 1500); // 1.5초로 변경
     } catch (error) {
-        dom.addMusicMessage.textContent = `저장 실패: ${error.message}`;
+        // 새로 만든 메시지 함수 사용
+        ui.showAddModalMessage(`저장 실패: ${error.message}`, false);
     } finally {
+        // setTimeout이 실행되는 동안 버튼이 다시 활성화되지 않도록
+        // 이 로직은 성공 시에는 setTimeout 안으로 옮겨주는게 더 좋지만,
+        // 일단은 원래 구조를 유지할게.
         dom.saveMusicButton.disabled = false;
         dom.saveMusicButton.textContent = "저장";
     }
 }
+
+// ... (이하 다른 핸들러 함수는 그대로) ...
 
 async function handleUpdateMusicAttempt(docId) {
     const title = dom.editMusicTitleInput.value.trim();

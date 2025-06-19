@@ -81,6 +81,16 @@ export function openAddModal() {
     dom.addMusicModal.classList.remove('hidden');
     document.body.classList.add('modal-active');
 }
+export function closeAddModal() {
+    dom.addMusicModal.classList.add('hidden');
+    document.body.classList.remove('modal-active');
+}
+export function showAddModalMessage(message, isSuccess = true) {
+    dom.addMusicMessage.textContent = message;
+    dom.addMusicMessage.className = isSuccess
+        ? 'mt-4 text-sm text-center text-green-500' // 성공 시 초록색
+        : 'mt-4 text-sm text-center text-red-500';  // 실패 시 빨간색
+}
 
 function closeAddModal() {
     dom.addMusicModal.classList.add('hidden');
