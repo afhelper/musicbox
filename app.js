@@ -74,6 +74,7 @@ function updateGlobalUI(user) {
         }
     } else { // 로그아웃
         loginFormContainer.classList.remove('hidden');
+        loginFormContainer.classList.replace('border-red-500', 'border-transparent');
         passwordInput.value = "";
         passwordInput.type = "password";
         if (typeof grecaptcha !== 'undefined') {
@@ -218,14 +219,10 @@ document.addEventListener('keydown', function (event) {
         event.preventDefault();
         if (targetLoginEmail === REGULAR_ADMIN_EMAIL) {
             targetLoginEmail = SUPER_ADMIN_EMAIL;
-            // passwordInput.type = "password";
-            messageDiv.textContent = "🔒 슈퍼 관리자 로그인 모드로 전환되었습니다.";
-            messageDiv.className = "mt-4 text-sm text-center text-amber-600 font-semibold";
+            loginFormContainer.classList.replace('border-transparent', 'border-red-500');
         } else {
             targetLoginEmail = REGULAR_ADMIN_EMAIL;
-            // passwordInput.type = "text";
-            messageDiv.textContent = "일반 관리자 로그인 모드입니다.";
-            messageDiv.className = "mt-4 text-sm text-center text-gray-500";
+            loginFormContainer.classList.replace('border-red-500', 'border-transparent');
         }
         setTimeout(() => {
             if (messageDiv.textContent.includes("로그인 모드")) messageDiv.textContent = "";
