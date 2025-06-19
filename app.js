@@ -67,7 +67,7 @@ function updateGlobalUI(user) {
         loadAndDisplayMusicData();
 
         passwordInput.value = "";
-        passwordInput.type = "text";
+        passwordInput.type = "password";
         targetLoginEmail = REGULAR_ADMIN_EMAIL;
         if (messageDiv && messageDiv.textContent.includes("로그인 모드")) {
             messageDiv.textContent = "";
@@ -75,7 +75,7 @@ function updateGlobalUI(user) {
     } else { // 로그아웃
         loginFormContainer.classList.remove('hidden');
         passwordInput.value = "";
-        passwordInput.type = "text";
+        passwordInput.type = "password";
         if (typeof grecaptcha !== 'undefined') {
             grecaptcha.reset();
         }
@@ -218,12 +218,12 @@ document.addEventListener('keydown', function (event) {
         event.preventDefault();
         if (targetLoginEmail === REGULAR_ADMIN_EMAIL) {
             targetLoginEmail = SUPER_ADMIN_EMAIL;
-            passwordInput.type = "password";
+            // passwordInput.type = "password";
             messageDiv.textContent = "🔒 슈퍼 관리자 로그인 모드로 전환되었습니다.";
             messageDiv.className = "mt-4 text-sm text-center text-amber-600 font-semibold";
         } else {
             targetLoginEmail = REGULAR_ADMIN_EMAIL;
-            passwordInput.type = "text";
+            // passwordInput.type = "text";
             messageDiv.textContent = "일반 관리자 로그인 모드입니다.";
             messageDiv.className = "mt-4 text-sm text-center text-gray-500";
         }
