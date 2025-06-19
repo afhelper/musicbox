@@ -268,6 +268,9 @@ async function handleLogin() {
 
 async function handleAddFormSubmit(event) {
     event.preventDefault();
+    const saveMusicButton = document.getElementById('saveMusicButton');
+    const addMusicMessage = document.getElementById('addMusicMessage');
+
     saveMusicButton.disabled = true;
     saveMusicButton.textContent = "저장 중...";
     addMusicMessage.textContent = "데이터를 저장하고 있습니다...";
@@ -281,6 +284,9 @@ async function handleAddFormSubmit(event) {
         link2: addMusicForm.musicLink2.value.trim(),
     };
 
+    const createdAtValue = addMusicForm.musicCreatedAt.value;
+    const finalCreatedAt = createdAtValue ? new Date(createdAtValue) : serverTimestamp();
+
     if (!formData.title) {
         addMusicMessage.textContent = "곡 제목은 필수입니다.";
         addMusicMessage.className = "mt-4 text-sm text-center text-red-500";
@@ -292,7 +298,7 @@ async function handleAddFormSubmit(event) {
     try {
         await addDoc(collection(db, "musicbox"), {
             ...formData,
-            createdAt: serverTimestamp(),
+            createdAt: finalCreatedAt,
             userId: auth.currentUser ? auth.currentUser.uid : null,
             isPinned: false,
             pinnedAt: null
@@ -312,6 +318,9 @@ async function handleAddFormSubmit(event) {
         saveMusicButton.textContent = "저장";
     }
 }
+
+
+
 
 
 function mapAuthError(errorCode) {

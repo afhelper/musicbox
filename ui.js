@@ -31,6 +31,13 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#39;");
 }
 
+function formatToDateTimeLocalString(date) {
+    if (!date) return '';
+    // 한국 시간(UTC+9)에 맞춰 표시되도록 시간 보정
+    const timezoneOffset = date.getTimezoneOffset() * 60000;
+    const localDate = new Date(date.getTime() - timezoneOffset);
+    return localDate.toISOString().slice(0, 16);
+}
 
 function getYouTubeVideoInfo(url) {
     if (!url) return null;
@@ -217,6 +224,14 @@ export function openEditModal(docId, musicData) {
     editMusicLink1Input.value = musicData.link1 || '';
     editMusicLink2Input.value = musicData.link2 || '';
 
+    const editMusicCreatedAtInput = document.getElementById('editMusicCreatedAt');
+    // 'createdAt' 필드가 있고, Firestore 날짜 형식이 맞는지 확인 (안전장치)
+    if (musicData.createdAt && musicData.createdAt.toDate) {
+        editMusicCreatedAtInput.value = formatToDateTimeLocalString(musicData.createdAt.toDate());
+    } else {
+        editMusicCreatedAtInput.value = ''; // 필드가 없으면 빈 값으로 설정
+    }
+
     editMusicMessage.textContent = '';
     editMusicModal.classList.remove('hidden');
     editMusicModal.classList.add('modal-active');
@@ -249,6 +264,12 @@ export async function handleEditFormSubmit(event) {
         link1: editMusicLink1Input.value.trim(),
         link2: editMusicLink2Input.value.trim(),
     };
+
+    const createdAtValue = document.getElementById('editMusicCreatedAt').value;
+    // 날짜 입력 필드에 값이 있을 때만 updatedMusic 객체에 createdAt 속성을 추가
+    if (createdAtValue) {
+        updatedMusic.createdAt = new Date(createdAtValue);
+    }
 
     if (!updatedMusic.title) {
         editMusicMessage.textContent = "곡 제목은 필수입니다.";
