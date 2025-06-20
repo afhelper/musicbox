@@ -1,7 +1,7 @@
 // app.js
 import {
     auth, db, onAuthStateChanged, signOut, signInWithEmailAndPassword,
-    collection, addDoc, query, orderBy, getDocs, serverTimestamp
+    collection, addDoc, query, orderBy, getDocs, serverTimestamp, limit, startAfter
 } from './firebase.js';
 
 import {
@@ -16,6 +16,11 @@ const REGULAR_ADMIN_EMAIL = "admin@admin.com";
 const SUPER_ADMIN_EMAIL = "super_admin@admin.com";
 const YOUR_SUPER_ADMIN_UID = "8ix4GhF65ENqR6nVB6VrH3n4qJy2";
 let targetLoginEmail = REGULAR_ADMIN_EMAIL;
+
+// 👇 페이지네이션을 위한 전역 변수 추가
+let lastVisibleDoc = null; // 마지막으로 불러온 문서를 추적
+let isLoading = false;     // 중복 로딩 방지 플래그
+const PAGE_SIZE = 10;      // 한 번에 불러올 문서 수
 
 // --- DOM Elements ---
 const loginFormContainer = document.getElementById('loginFormContainer');
@@ -60,11 +65,13 @@ onAuthStateChanged(auth, (user) => {
 });
 
 function updateGlobalUI(user) {
-    if (user) { // 로그인
+    if (user) { // 로그인 시
         loginFormContainer.classList.add('hidden');
         fabContainer.classList.remove('hidden');
         dataSectionDiv.classList.remove('hidden');
-        loadAndDisplayMusicData();
+
+        // 👇 [수정됨] 첫 로딩임을 명시적으로 알려주기 위해 true를 전달
+        loadAndDisplayMusicData(true);
 
         passwordInput.value = "";
         passwordInput.type = "password";
@@ -72,7 +79,7 @@ function updateGlobalUI(user) {
         if (messageDiv && messageDiv.textContent.includes("로그인 모드")) {
             messageDiv.textContent = "";
         }
-    } else { // 로그아웃
+    } else { // 로그아웃 시
         loginFormContainer.classList.remove('hidden');
         loginFormContainer.classList.replace('border-red-500', 'border-transparent');
         passwordInput.value = "";
@@ -91,60 +98,75 @@ function updateGlobalUI(user) {
         if (fabOpen) {
             fabButton.click();
         }
+
+        // 👇 [추가됨] 로그아웃 시 페이지네이션 상태를 깨끗하게 초기화
+        lastVisibleDoc = null;
+        isLoading = false;
     }
 }
 
 // --- Data Loading ---
-export async function loadAndDisplayMusicData() {
+
+export async function loadAndDisplayMusicData(isInitialLoad = false) {
+    // 로딩 중이거나, 첫 로드가 아닌데 더 불러올 문서가 없으면 중단
+    if (isLoading || (!isInitialLoad && !lastVisibleDoc)) {
+        return;
+    }
     if (!auth.currentUser) return;
 
-    musicListContainer.innerHTML = '<p class="text-center text-gray-500">음악 목록을 불러오는 중...</p>';
+    isLoading = true;
+    scrollTrigger.innerHTML = '<div class="spinner"></div>'; // 로딩 시작, 스피너 표시
+
+    // 첫 로딩일 경우, 기존 목록을 비우고 상태 초기화
+    if (isInitialLoad) {
+        musicListContainer.innerHTML = '';
+        lastVisibleDoc = null;
+    }
+
     try {
         const musicCollectionRef = collection(db, "musicbox");
-        const q = query(musicCollectionRef,
+        let q = query(musicCollectionRef,
             orderBy("isPinned", "desc"),
             orderBy("pinnedAt", "desc"),
-            orderBy("createdAt", "desc")
+            orderBy("createdAt", "desc"),
+            limit(PAGE_SIZE)
         );
+
+        // 첫 로딩이 아닐 경우, 마지막 문서 다음부터 쿼리
+        if (!isInitialLoad && lastVisibleDoc) {
+            q = query(q, startAfter(lastVisibleDoc));
+        }
+
         const querySnapshot = await getDocs(q);
 
-        if (querySnapshot.empty) {
+        if (isInitialLoad && querySnapshot.empty) {
             musicListContainer.innerHTML = '<p class="text-center text-gray-500">아직 등록된 음악이 없어요. 첫 곡을 추가해보세요!</p>';
+            scrollTrigger.innerHTML = ''; // 내용 없으면 스피너도 제거
+            isLoading = false;
             return;
         }
-        musicListContainer.innerHTML = '';
+
         querySnapshot.forEach((docSnapshot) => {
             const music = docSnapshot.data();
             const musicElement = createMusicItemElement(docSnapshot.id, music, auth.currentUser, YOUR_SUPER_ADMIN_UID);
-            musicListContainer.appendChild(musicElement);
+            musicListContainer.appendChild(musicElement); // 기존 목록에 추가(append)
         });
+
+        // 마지막 문서를 저장해 다음 페이지 쿼리에 사용
+        lastVisibleDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
+
+        // 불러온 문서 수가 PAGE_SIZE보다 작으면 더 이상 데이터가 없는 것
+        if (querySnapshot.docs.length < PAGE_SIZE) {
+            lastVisibleDoc = null; // 더 이상 가져올 데이터 없음을 표시
+        }
+
     } catch (error) {
         console.error("음악 데이터 로드 실패:", error);
-        // ... (기존 에러 처리 로직)
-        if (error.code === 'failed-precondition' || (error.message && error.message.toLowerCase().includes('index'))) {
-            const firestoreConsoleLinkRegex = /(https:\/\/console\.firebase\.google\.com\/project\/[^/]+\/firestore\/indexes\?create_composite=.+)/;
-            const match = error.message.match(firestoreConsoleLinkRegex);
-            let indexLinkHtml = "";
-            if (match && match[1]) {
-                indexLinkHtml = `<p class="text-center text-sm text-gray-500 mt-1"> Firestore 콘솔에서 <a href="${match[1]}" target="_blank" class="text-indigo-600 hover:underline">이 링크</a>를 통해 색인을 생성해 보세요. </p>`;
-            }
-            musicListContainer.innerHTML = `
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                    <strong class="font-bold">데이터 정렬 오류!</strong>
-                    <span class="block sm:inline"> 필요한 Firestore 색인이 없습니다.</span>
-                    <p class="text-sm mt-2">
-                        <b>컬렉션:</b> musicbox<br>
-                        <b>필수 정렬 필드:</b><br>
-                        1. isPinned (내림차순)<br>
-                        2. pinnedAt (내림차순)<br>
-                        3. createdAt (내림차순)
-                    </p>
-                    ${indexLinkHtml}
-                    <p class="text-xs mt-2">에러: ${error.message}</p>
-                </div>`;
-        } else {
-            musicListContainer.innerHTML = '<p class="text-center text-red-500">음악 목록을 불러오는 데 실패했습니다: ' + error.message + '</p>';
-        }
+        // ... 기존 에러 처리 로직을 여기에 넣어도 됨
+        musicListContainer.innerHTML += '<p class="text-center text-red-500">목록을 불러오는 데 실패했습니다.</p>';
+    } finally {
+        isLoading = false;
+        scrollTrigger.innerHTML = ''; // 로딩 완료, 스피너 제거
     }
 }
 
@@ -186,6 +208,23 @@ logoutFab.addEventListener('click', async () => {
         alert("로그아웃 중 오류가 발생했습니다.");
     }
 });
+
+
+// --- IntersectionObserver for Infinite Scrolling ---
+const observer = new IntersectionObserver((entries) => {
+    // entries[0]가 화면에 보이고(isIntersecting), 로딩 중이 아닐 때 데이터 로드
+    if (entries[0].isIntersecting && !isLoading) {
+        loadAndDisplayMusicData(false); // isInitialLoad = false
+    }
+}, {
+    rootMargin: '0px',
+    threshold: 0.1 // 트리거 요소가 10%만 보여도 콜백 실행
+});
+
+// scrollTrigger 요소 감시 시작
+observer.observe(scrollTrigger);
+
+
 
 // Add Music Modal
 closeAddMusicModalButton.addEventListener('click', closeAddModal);
