@@ -190,18 +190,18 @@ logoutFab.addEventListener('click', async () => {
 // Add Music Modal
 closeAddMusicModalButton.addEventListener('click', closeAddModal);
 cancelAddMusicButton.addEventListener('click', closeAddModal);
-addMusicModal.addEventListener('click', (event) => {
-    if (event.target === addMusicModal) closeAddModal();
-});
+// addMusicModal.addEventListener('click', (event) => {
+//     if (event.target === addMusicModal) closeAddModal();
+// });
 addMusicForm.addEventListener('submit', handleAddFormSubmit);
 
 
 // Edit Music Modal
 closeEditMusicModalButton.addEventListener('click', closeEditModal);
 cancelEditMusicButton.addEventListener('click', closeEditModal);
-editMusicModal.addEventListener('click', (event) => {
-    if (event.target === editMusicModal) closeEditModal();
-});
+// editMusicModal.addEventListener('click', (event) => {
+//     if (event.target === editMusicModal) closeEditModal();
+// });
 editMusicForm.addEventListener('submit', handleEditFormSubmit);
 
 
