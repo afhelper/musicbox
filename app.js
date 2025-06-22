@@ -226,15 +226,29 @@ fabButton.addEventListener('click', () => {
 
 // 👇 [2단계-5] 검색 관련 이벤트 리스너 추가
 searchInput.addEventListener('keydown', (e) => {
+    // 'Enter' 키를 눌렀을 때
     if (e.key === 'Enter') {
+        // 앞뒤 공백을 제거한 검색어를 가져옴
         const searchTerm = searchInput.value.trim();
+
+        // 검색어가 있을 경우, 검색을 실행
         if (searchTerm) {
             currentSearchTerm = searchTerm;
-            clearSearchButton.classList.remove('hidden'); // 검색어가 있으면 X 버튼 보이기
-            loadAndDisplayMusicData(true, currentSearchTerm);
+            clearSearchButton.classList.remove('hidden'); // X 버튼 보이기
+            loadAndDisplayMusicData(true, currentSearchTerm); // 새로운 검색어로 데이터 로드
+        } else {
+            // 검색어가 비어있을 때 Enter를 누르면 검색 취소
+            // X 버튼의 클릭 이벤트를 강제로 실행시켜 코드를 재사용
+            clearSearchButton.click();
         }
     }
+    // 'Escape' 키를 눌렀을 때
+    else if (e.key === 'Escape') {
+        // 검색을 취소하고 전체 목록으로 돌아감
+        clearSearchButton.click(); // 마찬가지로 X 버튼 클릭을 실행
+    }
 });
+
 
 clearSearchButton.addEventListener('click', () => {
     searchInput.value = '';
