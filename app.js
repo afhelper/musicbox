@@ -1,7 +1,7 @@
 // app.js
 import {
     auth, db, onAuthStateChanged, signOut, signInWithEmailAndPassword,
-    collection, addDoc, query, orderBy, getDocs, serverTimestamp, limit, startAfter
+    collection, addDoc, query, orderBy, getDocs, serverTimestamp, limit, startAfter, where
 } from './firebase.js';
 
 import {
@@ -16,6 +16,8 @@ const REGULAR_ADMIN_EMAIL = "admin@admin.com";
 const SUPER_ADMIN_EMAIL = "super_admin@admin.com";
 const YOUR_SUPER_ADMIN_UID = "8ix4GhF65ENqR6nVB6VrH3n4qJy2";
 let targetLoginEmail = REGULAR_ADMIN_EMAIL;
+// 👇 [2단계-2] 전역 변수 추가
+let currentSearchTerm = null; // 현재 검색어를 저장할 변수
 
 // 👇 페이지네이션을 위한 전역 변수 추가
 let lastVisibleDoc = null; // 마지막으로 불러온 문서를 추적
@@ -29,6 +31,9 @@ const loginButton = document.getElementById('loginButton');
 const messageDiv = document.getElementById('message');
 const dataSectionDiv = document.getElementById('dataSection');
 const musicListContainer = document.getElementById('musicListContainer');
+// 👇 [2단계-3] 새로 추가한 DOM 요소 가져오기
+const searchInput = document.getElementById('searchInput');
+const clearSearchButton = document.getElementById('clearSearchButton');
 
 // Modal Elements
 const addMusicModal = document.getElementById('addMusicModal');
@@ -106,18 +111,18 @@ function updateGlobalUI(user) {
 }
 
 // --- Data Loading ---
+// musicbox/app.js
 
-export async function loadAndDisplayMusicData(isInitialLoad = false) {
-    // 로딩 중이거나, 첫 로드가 아닌데 더 불러올 문서가 없으면 중단
+export async function loadAndDisplayMusicData(isInitialLoad = false, searchTerm = null) {
+    // 👇 바로 이 부분이야!
     if (isLoading || (!isInitialLoad && !lastVisibleDoc)) {
         return;
     }
     if (!auth.currentUser) return;
 
     isLoading = true;
-    scrollTrigger.innerHTML = '<div class="spinner"></div>'; // 로딩 시작, 스피너 표시
+    scrollTrigger.innerHTML = '<div class="spinner"></div>';
 
-    // 첫 로딩일 경우, 기존 목록을 비우고 상태 초기화
     if (isInitialLoad) {
         musicListContainer.innerHTML = '';
         lastVisibleDoc = null;
@@ -125,14 +130,22 @@ export async function loadAndDisplayMusicData(isInitialLoad = false) {
 
     try {
         const musicCollectionRef = collection(db, "musicbox");
-        let q = query(musicCollectionRef,
-            orderBy("isPinned", "desc"),
-            orderBy("pinnedAt", "desc"),
-            orderBy("createdAt", "desc"),
-            limit(PAGE_SIZE)
-        );
+        let q;
 
-        // 첫 로딩이 아닐 경우, 마지막 문서 다음부터 쿼리
+        if (searchTerm) {
+            q = query(musicCollectionRef,
+                where("keywords", "array-contains", searchTerm.toLowerCase()),
+                limit(PAGE_SIZE)
+            );
+        } else {
+            q = query(musicCollectionRef,
+                orderBy("isPinned", "desc"),
+                orderBy("pinnedAt", "desc"),
+                orderBy("createdAt", "desc"),
+                limit(PAGE_SIZE)
+            );
+        }
+
         if (!isInitialLoad && lastVisibleDoc) {
             q = query(q, startAfter(lastVisibleDoc));
         }
@@ -140,33 +153,49 @@ export async function loadAndDisplayMusicData(isInitialLoad = false) {
         const querySnapshot = await getDocs(q);
 
         if (isInitialLoad && querySnapshot.empty) {
-            musicListContainer.innerHTML = '<p class="text-center text-gray-500">아직 등록된 음악이 없어요. 첫 곡을 추가해보세요!</p>';
-            scrollTrigger.innerHTML = ''; // 내용 없으면 스피너도 제거
+            musicListContainer.innerHTML = searchTerm
+                ? `<p class="text-center text-gray-500">'${searchTerm}'에 대한 검색 결과가 없습니다.</p>`
+                : '<p class="text-center text-gray-500">아직 등록된 음악이 없어요. 첫 곡을 추가해보세요!</p>';
+            scrollTrigger.innerHTML = '';
             isLoading = false;
+            lastVisibleDoc = null;
             return;
         }
 
         querySnapshot.forEach((docSnapshot) => {
             const music = docSnapshot.data();
             const musicElement = createMusicItemElement(docSnapshot.id, music, auth.currentUser, YOUR_SUPER_ADMIN_UID);
-            musicListContainer.appendChild(musicElement); // 기존 목록에 추가(append)
+            musicListContainer.appendChild(musicElement);
         });
 
-        // 마지막 문서를 저장해 다음 페이지 쿼리에 사용
-        lastVisibleDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
+        const lastDocInPage = querySnapshot.docs[querySnapshot.docs.length - 1];
 
-        // 불러온 문서 수가 PAGE_SIZE보다 작으면 더 이상 데이터가 없는 것
         if (querySnapshot.docs.length < PAGE_SIZE) {
-            lastVisibleDoc = null; // 더 이상 가져올 데이터 없음을 표시
+            lastVisibleDoc = null;
+        } else {
+            lastVisibleDoc = lastDocInPage;
         }
 
     } catch (error) {
         console.error("음악 데이터 로드 실패:", error);
-        // ... 기존 에러 처리 로직을 여기에 넣어도 됨
         musicListContainer.innerHTML += '<p class="text-center text-red-500">목록을 불러오는 데 실패했습니다.</p>';
     } finally {
         isLoading = false;
-        scrollTrigger.innerHTML = ''; // 로딩 완료, 스피너 제거
+
+        // 👇 finally 블록을 이렇게 수정
+        if (lastVisibleDoc) {
+            // 아직 불러올 페이지가 남았으면, 스피너를 위해 공간을 비워둠
+            scrollTrigger.innerHTML = '';
+        } else {
+            // 더 이상 불러올 페이지가 없으면, 마지막임을 알리는 메시지 표시
+            // musicListContainer에 자식이 하나라도 있을 때만 메시지를 표시
+            if (musicListContainer.children.length > 0) {
+                scrollTrigger.innerHTML = '<p class="text-sm text-center text-gray-500 pt-6">마지막 페이지입니다.</p>';
+            } else {
+                // 목록이 아예 비어있으면 아무것도 표시하지 않음
+                scrollTrigger.innerHTML = '';
+            }
+        }
     }
 }
 
@@ -194,6 +223,27 @@ fabButton.addEventListener('click', () => {
     fabIconClose.classList.toggle('hidden', !fabOpen);
 });
 
+
+// 👇 [2단계-5] 검색 관련 이벤트 리스너 추가
+searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        const searchTerm = searchInput.value.trim();
+        if (searchTerm) {
+            currentSearchTerm = searchTerm;
+            clearSearchButton.classList.remove('hidden'); // 검색어가 있으면 X 버튼 보이기
+            loadAndDisplayMusicData(true, currentSearchTerm);
+        }
+    }
+});
+
+clearSearchButton.addEventListener('click', () => {
+    searchInput.value = '';
+    currentSearchTerm = null;
+    clearSearchButton.classList.add('hidden'); // X 버튼 숨기기
+    loadAndDisplayMusicData(true); // 전체 목록 다시 불러오기
+});
+
+
 openAddMusicFab.addEventListener('click', () => {
     openAddModal();
     if (fabOpen) fabButton.click();
@@ -211,14 +261,16 @@ logoutFab.addEventListener('click', async () => {
 
 
 // --- IntersectionObserver for Infinite Scrolling ---
+
+// 👇 [2단계-6] 무한 스크롤 시 검색 상태를 유지하도록 수정
 const observer = new IntersectionObserver((entries) => {
-    // entries[0]가 화면에 보이고(isIntersecting), 로딩 중이 아닐 때 데이터 로드
     if (entries[0].isIntersecting && !isLoading) {
-        loadAndDisplayMusicData(false); // isInitialLoad = false
+        // currentSearchTerm을 인자로 넘겨주어 검색 상태에서도 무한스크롤이 동작하게 함
+        loadAndDisplayMusicData(false, currentSearchTerm);
     }
 }, {
     rootMargin: '0px',
-    threshold: 0.1 // 트리거 요소가 10%만 보여도 콜백 실행
+    threshold: 0.1
 });
 
 // scrollTrigger 요소 감시 시작
@@ -330,10 +382,12 @@ async function handleAddFormSubmit(event) {
         saveMusicButton.textContent = "저장";
         return;
     }
-
+    // 👇 [1단계-1] 제목을 키워드로 분해해서 같이 저장하기
+    const keywords = formData.title.toLowerCase().split(' ').filter(word => word.length > 0);
     try {
         await addDoc(collection(db, "musicbox"), {
             ...formData,
+            keywords: keywords,
             createdAt: finalCreatedAt,
             userId: auth.currentUser ? auth.currentUser.uid : null,
             isPinned: false,
@@ -343,7 +397,7 @@ async function handleAddFormSubmit(event) {
         addMusicMessage.className = "mt-4 text-sm text-center text-green-500";
         setTimeout(() => {
             closeAddModal();
-            loadAndDisplayMusicData();
+            loadAndDisplayMusicData(true);
         }, 1500);
     } catch (error) {
         console.error("데이터 저장 실패: ", error);

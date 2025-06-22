@@ -264,6 +264,8 @@ export async function handleEditFormSubmit(event) {
         link1: editMusicLink1Input.value.trim(),
         link2: editMusicLink2Input.value.trim(),
     };
+    // 👇 [1단계-2] 수정할 때도 제목을 키워드로 분해해서 업데이트
+    updatedMusic.keywords = updatedMusic.title.toLowerCase().split(' ').filter(word => word.length > 0);
 
     const createdAtValue = document.getElementById('editMusicCreatedAt').value;
     // 날짜 입력 필드에 값이 있을 때만 updatedMusic 객체에 createdAt 속성을 추가
@@ -287,7 +289,7 @@ export async function handleEditFormSubmit(event) {
         editMusicMessage.className = "mt-4 text-sm text-center text-green-500";
         setTimeout(() => {
             closeEditModal();
-            loadAndDisplayMusicData();
+            loadAndDisplayMusicData(true);
         }, 1500);
 
     } catch (error) {
