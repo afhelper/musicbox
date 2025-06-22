@@ -357,7 +357,7 @@ function createDropdownMenu(musicId, musicData) {
                 pinnedAt: !isCurrentlyPinned ? serverTimestamp() : null
             });
             console.log(`문서 ${musicId} 고정 상태 변경됨`);
-            loadAndDisplayMusicData();
+            loadAndDisplayMusicData(true);
         } catch (error) {
             console.error("고정 상태 업데이트 실패:", error);
             alert("고정 상태 변경 중 오류가 발생했습니다.");
@@ -414,7 +414,7 @@ async function handleDeleteMusic(docId, musicTitle = "해당 곡") {
             const musicDocRef = doc(db, "musicbox", docId);
             await deleteDoc(musicDocRef);
             console.log("문서 삭제 완료:", docId);
-            loadAndDisplayMusicData();
+            loadAndDisplayMusicData(true);
             alert(`"${musicTitle}"이(가) 삭제되었습니다.`);
         } catch (error) {
             console.error("문서 삭제 실패: ", error);
