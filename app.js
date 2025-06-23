@@ -235,25 +235,18 @@ musicListContainer.addEventListener('play', (event) => {
     }
 }, true); // 이벤트 캡처링 사용
 
-// 사용자가 일시정지하거나 다른 곡 재생으로 인해 정지될 때 하이라이트를 제거하는 리스너
-musicListContainer.addEventListener('pause', (event) => {
+const handleAudioStop = (event) => {
     if (event.target.tagName === 'AUDIO') {
-        const currentMusicItem = event.target.closest('.music-item');
-        if (currentMusicItem) {
-            currentMusicItem.classList.remove('now-playing');
+        const musicItem = event.target.closest('.music-item');
+        if (musicItem) {
+            musicItem.classList.remove('now-playing');
         }
     }
-}, true);
+};
 
-// 곡 재생이 끝나면 하이라이트를 제거하는 리스너
-musicListContainer.addEventListener('ended', (event) => {
-    if (event.target.tagName === 'AUDIO') {
-        const currentMusicItem = event.target.closest('.music-item');
-        if (currentMusicItem) {
-            currentMusicItem.classList.remove('now-playing');
-        }
-    }
-}, true);
+// 👇 [수정] 두 이벤트에 동일한 함수를 연결
+musicListContainer.addEventListener('pause', handleAudioStop, true);
+musicListContainer.addEventListener('ended', handleAudioStop, true);
 
 
 // FAB
