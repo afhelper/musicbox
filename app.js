@@ -210,19 +210,50 @@ passwordInput.addEventListener('keydown', (event) => {
     }
 });
 
-// 👇 [추가] 4단계: 한 번에 하나의 오디오만 재생되도록 처리
 musicListContainer.addEventListener('play', (event) => {
     // 이벤트가 발생한 타겟이 AUDIO 태그인지 확인
     if (event.target.tagName === 'AUDIO') {
+        // 1. 모든 항목에서 'now-playing' 클래스를 먼저 제거 (하이라이트 초기화)
+        const allMusicItems = musicListContainer.querySelectorAll('.music-item');
+        allMusicItems.forEach(item => {
+            item.classList.remove('now-playing');
+        });
+
+        // 2. 현재 재생된 오디오의 부모(.music-item)를 찾아 'now-playing' 클래스 추가
+        const currentMusicItem = event.target.closest('.music-item');
+        if (currentMusicItem) {
+            currentMusicItem.classList.add('now-playing');
+        }
+
+        // 3. 다른 오디오가 재생중이면 멈추는 기존 로직
         const allAudioElements = musicListContainer.querySelectorAll('audio');
         allAudioElements.forEach(audio => {
-            // 현재 재생 시작된 오디오가 아니면서, 일시정지 상태가 아니라면
             if (audio !== event.target && !audio.paused) {
-                audio.pause(); // 멈춤
+                audio.pause();
             }
         });
     }
-}, true); // 이벤트 캡처링을 사용해서 하위 요소의 이벤트를 먼저 감지
+}, true); // 이벤트 캡처링 사용
+
+// 사용자가 일시정지하거나 다른 곡 재생으로 인해 정지될 때 하이라이트를 제거하는 리스너
+musicListContainer.addEventListener('pause', (event) => {
+    if (event.target.tagName === 'AUDIO') {
+        const currentMusicItem = event.target.closest('.music-item');
+        if (currentMusicItem) {
+            currentMusicItem.classList.remove('now-playing');
+        }
+    }
+}, true);
+
+// 곡 재생이 끝나면 하이라이트를 제거하는 리스너
+musicListContainer.addEventListener('ended', (event) => {
+    if (event.target.tagName === 'AUDIO') {
+        const currentMusicItem = event.target.closest('.music-item');
+        if (currentMusicItem) {
+            currentMusicItem.classList.remove('now-playing');
+        }
+    }
+}, true);
 
 
 // FAB
