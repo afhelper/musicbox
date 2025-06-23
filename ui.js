@@ -151,7 +151,7 @@ export function createMusicItemElement(id, music, currentUser, YOUR_SUPER_ADMIN_
         if (isAudioFile) {
             // 각 오디오 요소와 플레이어 UI 요소에 고유 ID를 부여 (id 변수 활용)
             playerHtml = `
-                <div class="my-3">
+                <div class="my-3 bg-white p-4 rounded-lg shadow-md">
                     <audio id="audioSource-${id}" src="${musicUrl}" preload="metadata" class="hidden"></audio>
                     <div class="flex items-center space-x-4">
                         <button id="playBtn-${id}" class="w-12 h-12 flex-shrink-0 bg-indigo-500 text-white rounded-full flex items-center justify-center hover:bg-indigo-600 transition shadow-lg">
@@ -161,7 +161,7 @@ export function createMusicItemElement(id, music, currentUser, YOUR_SUPER_ADMIN_
                             <div id="progress-container-${id}" class="bg-gray-200 rounded-full h-4 w-full cursor-pointer">
                                 <div id="progress-${id}" class="bg-indigo-500 h-4 rounded-full w-0"></div>
                             </div>
-                            <div class="text-xs text-gray-500 mt-1 flex justify-between">
+                            <div class="absolute w-full text-xs text-gray-500 mt-1 flex justify-between">
                                 <span id="currentTime-${id}">0:00</span>
                                 <span id="duration-${id}">0:00</span>
                             </div>
