@@ -210,6 +210,21 @@ passwordInput.addEventListener('keydown', (event) => {
     }
 });
 
+// 👇 [추가] 4단계: 한 번에 하나의 오디오만 재생되도록 처리
+musicListContainer.addEventListener('play', (event) => {
+    // 이벤트가 발생한 타겟이 AUDIO 태그인지 확인
+    if (event.target.tagName === 'AUDIO') {
+        const allAudioElements = musicListContainer.querySelectorAll('audio');
+        allAudioElements.forEach(audio => {
+            // 현재 재생 시작된 오디오가 아니면서, 일시정지 상태가 아니라면
+            if (audio !== event.target && !audio.paused) {
+                audio.pause(); // 멈춤
+            }
+        });
+    }
+}, true); // 이벤트 캡처링을 사용해서 하위 요소의 이벤트를 먼저 감지
+
+
 // FAB
 fabButton.addEventListener('click', () => {
     fabOpen = !fabOpen;

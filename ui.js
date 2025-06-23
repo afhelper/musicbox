@@ -21,6 +21,64 @@ const editMusicDescriptionInput = document.getElementById('editMusicDescription'
 const editMusicLink1Input = document.getElementById('editMusicLink1');
 const editMusicLink2Input = document.getElementById('editMusicLink2');
 
+
+// 👇 [추가] 2단계: 새로운 오디오 플레이어 로직
+const formatTime = (time) => {
+    if (isNaN(time)) return "0:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
+const setupPlayer = ({ audio, playBtn, progressContainer, progress, currentTimeEl, durationEl }) => {
+    let isPlaying = false;
+
+    const togglePlay = () => {
+        isPlaying ? audio.pause() : audio.play();
+    };
+
+    playBtn.addEventListener('click', togglePlay);
+
+    audio.addEventListener('play', () => {
+        isPlaying = true;
+        const icon = playBtn.querySelector('i');
+        icon.classList.remove('fa-play');
+        icon.classList.add('fa-pause');
+    });
+
+    audio.addEventListener('pause', () => {
+        isPlaying = false;
+        const icon = playBtn.querySelector('i');
+        icon.classList.remove('fa-pause');
+        icon.classList.add('fa-play');
+    });
+
+    const updateDisplay = () => {
+        if (!audio.duration) return;
+
+        const progressPercent = (audio.currentTime / audio.duration) * 100;
+        progress.style.width = `${progressPercent}%`;
+
+        currentTimeEl.textContent = formatTime(audio.currentTime);
+    };
+
+    // 오디오 파일의 메타데이터가 로드되면 전체 길이를 표시
+    audio.addEventListener('loadedmetadata', () => {
+        durationEl.textContent = formatTime(audio.duration);
+        updateDisplay();
+    });
+
+    audio.addEventListener('timeupdate', updateDisplay);
+
+    progressContainer.addEventListener('click', (e) => {
+        const rect = progressContainer.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const newTime = (clickX / rect.width) * audio.duration;
+        audio.currentTime = newTime;
+    });
+};
+
+
 // --- Helper Functions ---
 function escapeHtml(unsafe) {
     return unsafe
@@ -91,17 +149,24 @@ export function createMusicItemElement(id, music, currentUser, YOUR_SUPER_ADMIN_
         const mainVideoInfo = getYouTubeVideoInfo(musicUrl);
 
         if (isAudioFile) {
-            let audioType = '';
-            if (/\.mp3$/i.test(musicUrl)) audioType = 'audio/mpeg';
-            else if (/\.(m4a|aac)$/i.test(musicUrl)) audioType = 'audio/mp4';
-            else if (/\.ogg$/i.test(musicUrl)) audioType = 'audio/ogg';
-            else if (/\.wav$/i.test(musicUrl)) audioType = 'audio/wav';
+            // 각 오디오 요소와 플레이어 UI 요소에 고유 ID를 부여 (id 변수 활용)
             playerHtml = `
                 <div class="my-3">
-                    <audio controls preload="none" class="w-full rounded">
-                        <source src="${musicUrl}" ${audioType ? `type="${audioType}"` : ''}>
-                        브라우저가 오디오 재생을 지원하지 않습니다. <a href="${musicUrl}" target="_blank" class="text-indigo-500 hover:underline">직접 듣기</a>
-                    </audio>
+                    <audio id="audioSource-${id}" src="${musicUrl}" preload="metadata" class="hidden"></audio>
+                    <div class="flex items-center space-x-4">
+                        <button id="playBtn-${id}" class="w-12 h-12 flex-shrink-0 bg-indigo-500 text-white rounded-full flex items-center justify-center hover:bg-indigo-600 transition shadow-lg">
+                            <i class="fas fa-play text-lg"></i>
+                        </button>
+                        <div class="w-full relative">
+                            <div id="progress-container-${id}" class="bg-gray-200 rounded-full h-4 w-full cursor-pointer">
+                                <div id="progress-${id}" class="bg-indigo-500 h-4 rounded-full w-0"></div>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1 flex justify-between">
+                                <span id="currentTime-${id}">0:00</span>
+                                <span id="duration-${id}">0:00</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>`;
         } else if (mainVideoInfo) {
             const embedContainerClass = mainVideoInfo.isShorts ? 'youtube-shorts-container' : 'aspect-w-16 aspect-h-9';
@@ -194,6 +259,20 @@ export function createMusicItemElement(id, music, currentUser, YOUR_SUPER_ADMIN_
     if (currentUser && currentUser.uid === YOUR_SUPER_ADMIN_UID) {
         addAdminControls(div, id, music);
     }
+
+
+    if (musicUrl && /\.(mp3|m4a|ogg|wav|aac)$/i.test(musicUrl)) {
+        setupPlayer({
+            audio: div.querySelector(`#audioSource-${id}`),
+            playBtn: div.querySelector(`#playBtn-${id}`),
+            progressContainer: div.querySelector(`#progress-container-${id}`),
+            progress: div.querySelector(`#progress-${id}`),
+            currentTimeEl: div.querySelector(`#currentTime-${id}`),
+            durationEl: div.querySelector(`#duration-${id}`),
+        });
+    }
+
+
     return div;
 }
 
