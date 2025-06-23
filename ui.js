@@ -30,6 +30,7 @@ const formatTime = (time) => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 };
 
+
 const setupPlayer = ({ audio, playBtn, progressContainer, progress, currentTimeEl, durationEl }) => {
     let isPlaying = false;
 
@@ -62,7 +63,6 @@ const setupPlayer = ({ audio, playBtn, progressContainer, progress, currentTimeE
         currentTimeEl.textContent = formatTime(audio.currentTime);
     };
 
-    // 오디오 파일의 메타데이터가 로드되면 전체 길이를 표시
     audio.addEventListener('loadedmetadata', () => {
         durationEl.textContent = formatTime(audio.duration);
         updateDisplay();
@@ -71,13 +71,16 @@ const setupPlayer = ({ audio, playBtn, progressContainer, progress, currentTimeE
     audio.addEventListener('timeupdate', updateDisplay);
 
     progressContainer.addEventListener('click', (e) => {
+        if (!isPlaying) return;
+
         const rect = progressContainer.getBoundingClientRect();
         const clickX = e.clientX - rect.left;
         const newTime = (clickX / rect.width) * audio.duration;
         audio.currentTime = newTime;
-        audio.play();
     });
 };
+
+
 
 
 // --- Helper Functions ---
@@ -152,23 +155,23 @@ export function createMusicItemElement(id, music, currentUser, YOUR_SUPER_ADMIN_
         if (isAudioFile) {
             // 각 오디오 요소와 플레이어 UI 요소에 고유 ID를 부여 (id 변수 활용)
             playerHtml = `
-                <div class="my-3 bg-white p-4 rounded-lg shadow-md">
-                    <audio id="audioSource-${id}" src="${musicUrl}" preload="metadata" class="hidden"></audio>
-                    <div class="flex items-center space-x-4">
-                        <button id="playBtn-${id}" class="w-12 h-12 flex-shrink-0 bg-indigo-500 text-white rounded-full flex items-center justify-center hover:bg-indigo-600 transition shadow-lg">
-                            <i class="fas fa-play text-lg"></i>
-                        </button>
-                        <div class="w-full relative">
-                            <div id="progress-container-${id}" class="bg-gray-200 rounded-full h-4 w-full cursor-pointer">
-                                <div id="progress-${id}" class="bg-indigo-500 h-4 rounded-full w-0"></div>
-                            </div>
-                            <div class="absolute w-full text-xs text-gray-500 mt-1 flex justify-between">
-                                <span id="currentTime-${id}">0:00</span>
-                                <span id="duration-${id}">0:00</span>
-                            </div>
+            <div class="my-3 bg-white p-4 rounded-lg shadow-md">
+                <audio id="audioSource-${id}" src="${musicUrl}" preload="metadata" class="hidden"></audio>
+                <div class="flex items-center space-x-4">
+                    <button id="playBtn-${id}" class="w-12 h-12 flex-shrink-0 bg-indigo-500 text-white rounded-full flex items-center justify-center hover:bg-indigo-600 transition shadow-lg">
+                        <i class="fas fa-play text-lg"></i>
+                    </button>
+                    <div class="w-full relative">
+                        <div id="progress-container-${id}" class="progress-container bg-gray-200 rounded-full h-4 w-full cursor-pointer">
+                            <div id="progress-${id}" class="progress-bar bg-indigo-500 h-4 rounded-full w-0"></div>
+                        </div>
+                        <div class="absolute w-full text-xs text-gray-500 mt-1 flex justify-between">
+                            <span id="currentTime-${id}">0:00</span>
+                            <span id="duration-${id}">0:00</span>
                         </div>
                     </div>
-                </div>`;
+                </div>
+            </div>`;
         } else if (mainVideoInfo) {
             const embedContainerClass = mainVideoInfo.isShorts ? 'youtube-shorts-container' : 'aspect-w-16 aspect-h-9';
             playerHtml = `

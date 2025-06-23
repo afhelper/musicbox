@@ -206,3 +206,30 @@
     box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5);
     /* 일반 상태와 동일한 그림자 유지 */
 }
+
+
+
+
+
+
+
+
+
+/* [추가] 진행 바 비활성화/활성화 스타일 */
+
+/* 기본적으로 모든 진행 바를 약간 흐리게하고, 클릭 커서를 기본으로 변경 */
+.progress-container {
+    opacity: 0.6;
+    transition: opacity 0.3s ease-in-out;
+    /* 'cursor: pointer'는 tailwind 클래스에 의해 적용되므로 여기서는 생략 */
+}
+
+/* 재생 중인(.now-playing) 아이템 내부의 진행 바만 완전히 보이게 하고, 커서를 포인터로 변경 */
+.music-item.now-playing .progress-container {
+    opacity: 1;
+}
+
+/* 재생 중이 아닌 아이템의 진행 바는 커서를 기본값으로 강제 변경 */
+.music-item:not(.now-playing) .progress-container {
+    cursor: default;
+}
