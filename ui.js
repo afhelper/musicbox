@@ -75,6 +75,7 @@ const setupPlayer = ({ audio, playBtn, progressContainer, progress, currentTimeE
         const clickX = e.clientX - rect.left;
         const newTime = (clickX / rect.width) * audio.duration;
         audio.currentTime = newTime;
+        audio.play();
     });
 };
 
