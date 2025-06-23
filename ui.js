@@ -2,6 +2,29 @@
 import { db, doc, updateDoc, deleteDoc, serverTimestamp } from './firebase.js';
 import { loadAndDisplayMusicData } from './app.js'; // 순환 참조를 피하기 위해 app.js에서 함수를 가져옴
 
+
+export function showToast(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        toast.addEventListener('transitionend', () => toast.remove());
+    }, duration);
+}
+
+
+
 let currentOpenDropdown = null;
 let currentEditingDocId = null;
 
@@ -443,7 +466,7 @@ function createDropdownMenu(musicId, musicData) {
             loadAndDisplayMusicData(true);
         } catch (error) {
             console.error("고정 상태 업데이트 실패:", error);
-            alert("고정 상태 변경 중 오류가 발생했습니다.");
+            showToast("고정 상태 변경 중 오류가 발생했습니다.");
         }
     });
 
@@ -498,10 +521,10 @@ async function handleDeleteMusic(docId, musicTitle = "해당 곡") {
             await deleteDoc(musicDocRef);
             console.log("문서 삭제 완료:", docId);
             loadAndDisplayMusicData(true);
-            alert(`"${musicTitle}"이(가) 삭제되었습니다.`);
+            showToast(`"${musicTitle}"이(가) 삭제되었습니다.`);
         } catch (error) {
             console.error("문서 삭제 실패: ", error);
-            alert("삭제 중 오류가 발생했습니다: " + error.message);
+            showToast("삭제 중 오류가 발생했습니다: " + error.message);
         }
     }
 }

@@ -8,7 +8,7 @@ import {
     createMusicItemElement,
     openAddModal, closeAddModal,
     openEditModal, closeEditModal, handleEditFormSubmit,
-    closeAnyOpenDropdown
+    closeAnyOpenDropdown, showToast
 } from './ui.js';
 
 // --- Constants ---
@@ -306,9 +306,10 @@ logoutFab.addEventListener('click', async () => {
     if (fabOpen) fabButton.click();
     try {
         await signOut(auth);
+        showToast("로그아웃 되었습니다.", "success");
     } catch (error) {
         console.error("로그아웃 실패:", error);
-        alert("로그아웃 중 오류가 발생했습니다.");
+        showToast("로그아웃 중 오류가 발생했습니다.");
     }
 });
 
