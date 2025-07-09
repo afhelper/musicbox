@@ -1,7 +1,7 @@
 // app.js
 import {
     auth, db, onAuthStateChanged, signOut, signInWithEmailAndPassword,
-    collection, addDoc, query, orderBy, getDocs, serverTimestamp, limit, startAfter, where
+    collection, addDoc, query, orderBy, getDocs, serverTimestamp, limit, startAfter, where, doc, getDoc
 } from './firebase.js';
 
 import {
@@ -75,8 +75,8 @@ function updateGlobalUI(user) {
         fabContainer.classList.remove('hidden');
         dataSectionDiv.classList.remove('hidden');
 
-        // 👇 [수정됨] 첫 로딩임을 명시적으로 알려주기 위해 true를 전달
-        loadAndDisplayMusicData(true);
+        // 👇 [수정] URL 해시를 확인하는 로직 추가
+        handleUrlHash();
 
         passwordInput.value = "";
         passwordInput.type = "password";
@@ -479,3 +479,71 @@ function mapAuthError(errorCode) {
         default: return "알 수 없는 오류가 발생했습니다. (" + errorCode + ")";
     }
 }
+
+// 👇 [추가] URL 해시 변경을 감지하고 처리하는 함수
+function handleUrlHash() {
+    const hash = window.location.hash;
+    // URL에 #post/ID 형태의 값이 있는지 확인
+    if (hash.startsWith('#post/')) {
+        const postId = hash.substring(6); // '#post/' 다음의 ID 값 추출
+        loadSinglePost(postId);
+    } else {
+        // 해시가 없으면 전체 목록을 불러옴
+        musicListContainer.style.display = 'block'; // 목록 컨테이너 보이기
+        scrollTrigger.style.display = 'block'; // 무한 스크롤 트리거 보이기
+        loadAndDisplayMusicData(true, currentSearchTerm);
+    }
+}
+
+// 👇 [추가] 단일 게시물 데이터만 불러와서 표시하는 함수
+
+
+async function loadSinglePost(postId) {
+    if (isLoading) return;
+    isLoading = true;
+    musicListContainer.innerHTML = '<div class="spinner"></div>'; // 로딩 스피너 표시
+
+    // 👇 [수정] 검색창과 무한 스크롤 관련 UI를 확실히 숨김
+    scrollTrigger.style.display = 'none';
+    searchInput.parentElement.classList.add('hidden');
+
+    try {
+        const docRef = doc(db, "musicbox", postId);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            musicListContainer.innerHTML = ''; // 스피너 제거
+            const music = docSnap.data();
+            const musicElement = createMusicItemElement(docSnap.id, music, auth.currentUser, YOUR_SUPER_ADMIN_UID);
+
+            // "목록으로 돌아가기" 버튼 추가
+            const backButton = document.createElement('button');
+            backButton.textContent = '← 전체 목록으로 돌아가기';
+            backButton.className = 'block mx-auto mb-4 text-indigo-600 hover:text-indigo-800 font-semibold';
+            backButton.onclick = () => {
+                // URL에서 해시를 제거하고, 전체 목록을 다시 불러옴
+                history.pushState("", document.title, window.location.pathname + window.location.search);
+
+                // 👇 [수정] 목록으로 돌아갈 때 검색창과 무한 스크롤 UI를 다시 보이게 함
+                searchInput.parentElement.classList.remove('hidden');
+                scrollTrigger.style.display = 'block';
+
+                handleUrlHash();
+            };
+
+            musicListContainer.appendChild(backButton);
+            musicListContainer.appendChild(musicElement);
+        } else {
+            console.log("해당 ID의 문서를 찾을 수 없습니다.");
+            musicListContainer.innerHTML = '<p class="text-center text-red-500">해당 게시물을 찾을 수 없습니다. 삭제되었거나 잘못된 주소입니다.</p>';
+        }
+    } catch (error) {
+        console.error("단일 게시물 로드 실패:", error);
+        musicListContainer.innerHTML = '<p class="text-center text-red-500">게시물을 불러오는 데 실패했습니다.</p>';
+    } finally {
+        isLoading = false;
+    }
+}
+
+// 👇 [추가] 브라우저의 뒤로/앞으로 가기 버튼을 눌렀을 때도 URL을 확인하도록 이벤트 리스너 추가
+window.addEventListener('hashchange', handleUrlHash);

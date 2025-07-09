@@ -58,16 +58,20 @@
     /* 8px */
     z-index: 10;
     /* 다른 요소 위에 오도록 */
+    display: flex;
+    /* 가로 정렬 */
+    gap: 0.25rem;
+    /* 버튼 사이 간격 (4px) */
 }
 
-.more-options-button {
+.control-button {
     background-color: rgba(255, 255, 255, 0.7);
     /* 반투명 흰색 배경 */
     border-radius: 50%;
-    width: 2rem;
-    /* 32px */
-    height: 2rem;
-    /* 32px */
+    width: 2.25rem;
+    /* 36px */
+    height: 2.25rem;
+    /* 36px */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -76,18 +80,17 @@
     transition: background-color 0.2s ease-in-out;
 }
 
-.more-options-button:hover {
+.control-button:hover {
     background-color: rgba(240, 240, 240, 0.9);
 }
 
-.more-options-button svg {
-    width: 1.25rem;
-    /* 20px */
-    height: 1.25rem;
-    /* 20px */
+/* 👇 [수정] 버튼 안의 아이콘(SVG) 공통 스타일 */
+.control-button svg {
     color: #4B5563;
     /* gray-600 */
 }
+
+
 
 .dropdown-menu {
     position: absolute;
