@@ -314,6 +314,33 @@ logoutFab.addEventListener('click', async () => {
 });
 
 
+// 👇 [추가] 로고 클릭 이벤트 처리
+const logoLink = document.getElementById('logoLink');
+if (logoLink) {
+    logoLink.addEventListener('click', (event) => {
+        event.preventDefault(); // a 태그의 기본 동작(페이지 상단 이동) 방지
+
+        // 현재 단일 게시물 보기 상태일 때 (#post/...)
+        if (window.location.hash.startsWith('#post/')) {
+            // URL에서 해시를 제거해서 목록으로 돌아가도록 신호를 보냄
+            history.pushState("", document.title, window.location.pathname + window.location.search);
+
+            // 숨겼던 UI들을 다시 표시
+            searchInput.parentElement.classList.remove('hidden');
+            scrollTrigger.style.display = 'block';
+
+            // 목록을 다시 로드하는 함수 호출
+            handleUrlHash();
+        }
+        // 일반 목록 보기 상태일 때
+        else {
+            // 단순히 목록을 맨 위에서부터 새로고침
+            loadAndDisplayMusicData(true);
+        }
+    });
+}
+
+
 // --- IntersectionObserver for Infinite Scrolling ---
 
 // 👇 [2단계-6] 무한 스크롤 시 검색 상태를 유지하도록 수정
@@ -503,7 +530,7 @@ async function loadSinglePost(postId) {
     isLoading = true;
     musicListContainer.innerHTML = '<div class="spinner"></div>'; // 로딩 스피너 표시
 
-    // 👇 [수정] 검색창과 무한 스크롤 관련 UI를 확실히 숨김
+    // 단일 게시물이므로 무한 스크롤과 검색창은 숨김
     scrollTrigger.style.display = 'none';
     searchInput.parentElement.classList.add('hidden');
 
@@ -516,23 +543,9 @@ async function loadSinglePost(postId) {
             const music = docSnap.data();
             const musicElement = createMusicItemElement(docSnap.id, music, auth.currentUser, YOUR_SUPER_ADMIN_UID);
 
-            // "목록으로 돌아가기" 버튼 추가
-            const backButton = document.createElement('button');
-            backButton.textContent = '← 전체 목록으로 돌아가기';
-            backButton.className = 'block mx-auto mb-4 text-indigo-600 hover:text-indigo-800 font-semibold';
-            backButton.onclick = () => {
-                // URL에서 해시를 제거하고, 전체 목록을 다시 불러옴
-                history.pushState("", document.title, window.location.pathname + window.location.search);
-
-                // 👇 [수정] 목록으로 돌아갈 때 검색창과 무한 스크롤 UI를 다시 보이게 함
-                searchInput.parentElement.classList.remove('hidden');
-                scrollTrigger.style.display = 'block';
-
-                handleUrlHash();
-            };
-
-            musicListContainer.appendChild(backButton);
+            // "목록으로 돌아가기" 버튼 없이 게시물 요소만 바로 추가
             musicListContainer.appendChild(musicElement);
+
         } else {
             console.log("해당 ID의 문서를 찾을 수 없습니다.");
             musicListContainer.innerHTML = '<p class="text-center text-red-500">해당 게시물을 찾을 수 없습니다. 삭제되었거나 잘못된 주소입니다.</p>';
