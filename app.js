@@ -518,6 +518,7 @@ function handleUrlHash() {
         // 해시가 없으면 전체 목록을 불러옴
         musicListContainer.style.display = 'block'; // 목록 컨테이너 보이기
         scrollTrigger.style.display = 'block'; // 무한 스크롤 트리거 보이기
+        fabContainer.classList.remove('hidden');
         loadAndDisplayMusicData(true, currentSearchTerm);
     }
 }
@@ -533,6 +534,7 @@ async function loadSinglePost(postId) {
     // 단일 게시물이므로 무한 스크롤과 검색창은 숨김
     scrollTrigger.style.display = 'none';
     searchInput.parentElement.classList.add('hidden');
+    fabContainer.classList.add('hidden');
 
     try {
         const docRef = doc(db, "musicbox", postId);
