@@ -18,6 +18,12 @@ const YOUR_SUPER_ADMIN_UID = "8ix4GhF65ENqR6nVB6VrH3n4qJy2";
 let targetLoginEmail = REGULAR_ADMIN_EMAIL;
 // 👇 [2단계-2] 전역 변수 추가
 let currentSearchTerm = null; // 현재 검색어를 저장할 변수
+// Turnstile 키/위젯 전역 변수
+const TURNSTILE_PROD_SITE_KEY = '0x4AAAAAABuBuULyo2tBwZPj';
+// 워커 검증 엔드포인트 (로컬 dev / 운영 분기)
+const TURNSTILE_VERIFY_ENDPOINT_LOCAL = 'http://127.0.0.1:8787/verify';
+const TURNSTILE_VERIFY_ENDPOINT_PROD = 'https://musicbox-turnstile-verify.issue3364.workers.dev/verify';
+let turnstileWidgetId = null;
 
 // 👇 페이지네이션을 위한 전역 변수 추가
 let lastVisibleDoc = null; // 마지막으로 불러온 문서를 추적
@@ -34,6 +40,8 @@ const musicListContainer = document.getElementById('musicListContainer');
 // 👇 [2단계-3] 새로 추가한 DOM 요소 가져오기
 const searchInput = document.getElementById('searchInput');
 const clearSearchButton = document.getElementById('clearSearchButton');
+// Turnstile 컨테이너
+const cfTurnstileEl = document.getElementById('cf-turnstile');
 
 // Modal Elements
 const addMusicModal = document.getElementById('addMusicModal');
@@ -89,9 +97,8 @@ function updateGlobalUI(user) {
         loginFormContainer.classList.replace('border-red-500', 'border-transparent');
         passwordInput.value = "";
         passwordInput.type = "password";
-        if (typeof grecaptcha !== 'undefined') {
-            grecaptcha.reset();
-        }
+        // Turnstile 위젯 렌더/리셋
+        renderTurnstile();
         fabContainer.classList.add('hidden');
         dataSectionDiv.classList.add('hidden');
         musicListContainer.innerHTML = '';
@@ -109,6 +116,48 @@ function updateGlobalUI(user) {
         isLoading = false;
     }
 }
+
+// Turnstile 사이트키 가져오기 (HTML data-sitekey 우선)
+function getTurnstileSiteKey() {
+    // 로컬/운영 모두 프로덕션 키 사용
+    return TURNSTILE_PROD_SITE_KEY;
+}
+
+function getTurnstileVerifyEndpoint() {
+    const host = (window.location && window.location.hostname) || '';
+    if (host === '127.0.0.1' || host === 'localhost') {
+        return TURNSTILE_VERIFY_ENDPOINT_LOCAL;
+    }
+    return TURNSTILE_VERIFY_ENDPOINT_PROD;
+}
+
+// Turnstile 렌더링
+function renderTurnstile() {
+    if (!cfTurnstileEl) return;
+    if (window.turnstile) {
+        if (turnstileWidgetId !== null) {
+            try { window.turnstile.reset(turnstileWidgetId); } catch (e) { /* noop */ }
+            return;
+        }
+        try {
+            turnstileWidgetId = window.turnstile.render('#cf-turnstile', {
+                sitekey: getTurnstileSiteKey(),
+                theme: 'light',
+                callback: function (token) {
+                    // 필요 시 토큰 사용 가능
+                    // console.log('Turnstile token:', token);
+                }
+            });
+        } catch (e) {
+            console.error('Turnstile 렌더링 실패:', e);
+        }
+    }
+}
+
+// Turnstile onload 콜백 (index.html의 api.js?onload=onTurnstileLoad와 연결)
+window.onTurnstileLoad = function () {
+    renderTurnstile();
+};
 
 // --- Data Loading ---
 // musicbox/app.js
@@ -407,10 +456,12 @@ document.addEventListener('keydown', function (event) {
 
 async function handleLogin() {
     const passwordVal = passwordInput.value;
-    const recaptchaResponse = (typeof grecaptcha !== 'undefined') ? grecaptcha.getResponse() : 'test_mode';
+    const turnstileToken = (window.turnstile && turnstileWidgetId !== null)
+        ? window.turnstile.getResponse(turnstileWidgetId)
+        : '';
 
-    if (!passwordVal || (!recaptchaResponse && typeof grecaptcha !== 'undefined')) {
-        messageDiv.textContent = !passwordVal ? "비밀번호를 입력해주세요." : "reCAPTCHA를 완료해주세요.";
+    if (!passwordVal || !turnstileToken) {
+        messageDiv.textContent = !passwordVal ? "비밀번호를 입력해주세요." : "Turnstile 인증을 완료해주세요.";
         messageDiv.className = "mt-4 text-sm text-center text-red-500";
         return;
     }
@@ -422,13 +473,31 @@ async function handleLogin() {
     messageDiv.className = "mt-4 text-sm text-center text-gray-500";
 
     try {
+        // 1) 서버에서 Turnstile 토큰 검증
+        const verifyEndpoint = getTurnstileVerifyEndpoint();
+        if (!verifyEndpoint || verifyEndpoint.includes('YOUR_WORKER_SUBDOMAIN')) {
+            throw new Error('Turnstile 검증 서버가 설정되지 않았습니다. 엔드포인트를 구성하세요.');
+        }
+        const verifyRes = await fetch(verifyEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: turnstileToken })
+        });
+        const verifyJson = await verifyRes.json().catch(() => ({ success: false }));
+        if (!verifyRes.ok || !verifyJson.success) {
+            console.error('Turnstile 검증 실패:', verifyJson);
+            throw new Error('Turnstile 검증에 실패했습니다. 잠시 후 다시 시도하세요.');
+        }
+
+        // 2) 검증 성공 시에만 로그인 진행
         await signInWithEmailAndPassword(auth, targetLoginEmail, passwordVal);
         console.log(`${currentLoginMode} 로그인 성공!`);
     } catch (error) {
         console.error(`${currentLoginMode} 로그인 실패:`, error.code);
-        messageDiv.textContent = `로그인 실패 (${currentLoginMode}): ${mapAuthError(error.code)}`;
+        const msg = error?.code ? mapAuthError(error.code) : (error?.message || '알 수 없는 오류입니다.');
+        messageDiv.textContent = `로그인 실패 (${currentLoginMode}): ${msg}`;
         messageDiv.className = "mt-4 text-sm text-center text-red-600";
-        if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
+        if (window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
     } finally {
         loginButton.disabled = false;
         loginButton.textContent = "로그인";

@@ -1,0 +1,11 @@
+name = "musicbox-turnstile-verify"
+main = "worker/turnstile-verify.js"
+compatibility_date = "2024-08-01"
+
+# 배포는 기본 workers.dev로 진행 (routes 생략)
+# 환경변수/시크릿:
+#   wrangler secret put TURNSTILE_SECRET_PROD  # 운영 시크릿
+#   ALLOWED_ORIGINS는 vars로 고정 (민감정보 아님)
+
+[vars]
+ALLOWED_ORIGINS = "http://localhost:5500, http://127.0.0.1:5500, https://afhelper.github.io"
