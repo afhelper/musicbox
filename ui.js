@@ -393,9 +393,19 @@ export async function handleEditFormSubmit(event) {
 
         editMusicMessage.textContent = "음악 정보가 성공적으로 업데이트되었습니다!";
         editMusicMessage.className = "mt-4 text-sm text-center text-green-500";
+        
+        // 👇 수정된 항목만 업데이트
+        const musicItemElement = document.querySelector(`.music-item[data-id="${currentEditingDocId}"]`);
+        if (musicItemElement) {
+            // 기존 요소를 새로운 요소로 교체
+            const newMusicItemElement = createMusicItemElement(currentEditingDocId, updatedMusic, /* currentUser */ null, /* YOUR_SUPER_ADMIN_UID */ null);
+            musicItemElement.replaceWith(newMusicItemElement);
+        }
+        
         setTimeout(() => {
             closeEditModal();
-            loadAndDisplayMusicData(true);
+            // 👇 전체 새로고침 대신 토스트 메시지 표시
+            showToast("게시글이 성공적으로 업데이트되었습니다!", "success");
         }, 1500);
 
     } catch (error) {
