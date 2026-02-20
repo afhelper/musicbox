@@ -1,5 +1,5 @@
 // ui.js
-import { db, doc, updateDoc, deleteDoc, serverTimestamp } from './firebase.js';
+import { auth, db, doc, updateDoc, deleteDoc, serverTimestamp } from './firebase.js';
 import { loadAndDisplayMusicData } from './app.js'; // 순환 참조를 피하기 위해 app.js에서 함수를 가져옴
 
 
@@ -27,6 +27,7 @@ export function showToast(message, type = 'info', duration = 3000) {
 
 let currentOpenDropdown = null;
 let currentEditingDocId = null;
+let superAdminUidForUi = null;
 
 // --- DOM Elements ---
 const musicListContainer = document.getElementById('musicListContainer');
@@ -124,6 +125,30 @@ function formatToDateTimeLocalString(date) {
     return localDate.toISOString().slice(0, 16);
 }
 
+function formatDisplayDate(value, emptyText = '날짜 정보 없음') {
+    if (!value) return emptyText;
+
+    // Firestore Timestamp 객체
+    if (typeof value.toDate === 'function') {
+        return value.toDate().toLocaleString();
+    }
+
+    // JS Date 객체
+    if (value instanceof Date) {
+        return isNaN(value.getTime()) ? emptyText : value.toLocaleString();
+    }
+
+    // { seconds: number } 형태
+    if (typeof value.seconds === 'number') {
+        const date = new Date(value.seconds * 1000);
+        return isNaN(date.getTime()) ? emptyText : date.toLocaleString();
+    }
+
+    // 문자열/숫자 타임스탬프 fallback
+    const fallbackDate = new Date(value);
+    return isNaN(fallbackDate.getTime()) ? emptyText : fallbackDate.toLocaleString();
+}
+
 function getYouTubeVideoInfo(url) {
     if (!url) return null;
     try {
@@ -164,6 +189,11 @@ function getYouTubeVideoInfo(url) {
 
 // --- Music Item Element Creation ---
 export function createMusicItemElement(id, music, currentUser, YOUR_SUPER_ADMIN_UID) {
+    if (YOUR_SUPER_ADMIN_UID) {
+        superAdminUidForUi = YOUR_SUPER_ADMIN_UID;
+    }
+    const effectiveSuperAdminUid = YOUR_SUPER_ADMIN_UID || superAdminUidForUi;
+
     const div = document.createElement('div');
     div.className = "music-item bg-gray-50 p-4 rounded-lg shadow hover:shadow-md transition-shadow duration-200";
     div.dataset.id = id;
@@ -266,7 +296,7 @@ export function createMusicItemElement(id, music, currentUser, YOUR_SUPER_ADMIN_
     let pinnedIndicatorHtml = '';
     if (music.isPinned === true) {
         pinnedIndicatorHtml = `
-        <div class="absolute -top-1 -left-1 bg-blue-400 text-white w-5 h-5 rounded-full shadow flex items-center justify-center" title="고정됨 (최근 고정일: ${music.pinnedAt ? new Date(music.pinnedAt.seconds * 1000).toLocaleString() : '시간 정보 없음'})">
+        <div class="absolute -top-1 -left-1 bg-blue-400 text-white w-5 h-5 rounded-full shadow flex items-center justify-center" title="고정됨 (최근 고정일: ${formatDisplayDate(music.pinnedAt, '시간 정보 없음')})">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
                 <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
             </svg>
@@ -280,7 +310,7 @@ export function createMusicItemElement(id, music, currentUser, YOUR_SUPER_ADMIN_
         ${safeDescription}
         ${link1Html}
         ${link2Html}
-        <p class="text-xs text-gray-400 mt-4 text-right">게시일: ${music.createdAt ? new Date(music.createdAt.seconds * 1000).toLocaleString() : '날짜 정보 없음'}</p>
+        <p class="text-xs text-gray-400 mt-4 text-right">게시일: ${formatDisplayDate(music.createdAt, '날짜 정보 없음')}</p>
     `;
 
     // 컨트롤 영역(공유 버튼은 모두에게, 관리 버튼은 관리자에게만)
@@ -303,7 +333,7 @@ export function createMusicItemElement(id, music, currentUser, YOUR_SUPER_ADMIN_
     controlsContainer.appendChild(shareButton);
 
     // 관리자만 볼 수 있는 더보기(수정/삭제/고정) 버튼
-    if (currentUser && currentUser.uid === YOUR_SUPER_ADMIN_UID) {
+    if (currentUser && effectiveSuperAdminUid && currentUser.uid === effectiveSuperAdminUid) {
         const moreButton = document.createElement('button');
         moreButton.className = 'more-options-button control-button';
         moreButton.title = '더 보기';
@@ -433,7 +463,7 @@ export async function handleEditFormSubmit(event) {
         const musicItemElement = document.querySelector(`.music-item[data-id="${currentEditingDocId}"]`);
         if (musicItemElement) {
             // 기존 요소를 새로운 요소로 교체
-            const newMusicItemElement = createMusicItemElement(currentEditingDocId, updatedMusic, /* currentUser */ null, /* YOUR_SUPER_ADMIN_UID */ null);
+            const newMusicItemElement = createMusicItemElement(currentEditingDocId, updatedMusic, auth.currentUser, superAdminUidForUi);
             musicItemElement.replaceWith(newMusicItemElement);
         }
         
